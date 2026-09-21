@@ -1,0 +1,26 @@
+[project]
+name = "insightaiagent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "c-blanding", email = "b.blanding90@yahoo.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "colorama>=0.4.6",
+    "dotenv>=0.9.9",
+    "langchain[mcp]>=1.4.2",
+    "langchain-community>=0.4.2",
+    "langchain-openai>=1.6.3",
+    "langchain-tavily>=0.2.18",
+    "langgraph>=1.2.12",
+    "langgraph-cli[inemem,inmem]>=0.4.31",
+]
+
+[project.scripts]
+insightaiagent = "insightaiagent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
