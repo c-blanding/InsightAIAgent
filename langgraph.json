@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "create_plan": "./src/create_plan.py:graph",
+    "execute_plan": "./src/execute_plan.py:graph"
+  },
+  "env": ".env"
+}
