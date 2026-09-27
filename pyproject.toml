@@ -16,6 +16,8 @@ dependencies = [
     "langchain-tavily>=0.2.18",
     "langgraph>=1.2.12",
     "langgraph-cli[inemem,inmem]>=0.4.31",
+    "fastmcp>=4.0.5",
+    "fastmcp-slim[client]>=4.0.5",
 ]
 
 [project.scripts]

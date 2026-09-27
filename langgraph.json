@@ -1,0 +1,9 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "create_plan": "./src/create_plan.py:graph",
+    "execute_plan": "./src/execute_plan.py:graph",
+    "insightaiagent": "./src/insightaiagent/agent.py:graph"
+  },
+  "env": ".env"
+}
