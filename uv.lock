@@ -1232,6 +1232,8 @@ source = { editable = "." }
 dependencies = [
     { name = "colorama" },
     { name = "dotenv" },
+    { name = "fastmcp" },
+    { name = "fastmcp-slim", extra = ["client"] },
     { name = "langchain", extra = ["mcp"] },
     { name = "langchain-community" },
     { name = "langchain-openai" },
@@ -1244,6 +1246,8 @@ dependencies = [
 requires-dist = [
     { name = "colorama", specifier = ">=0.4.6" },
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "fastmcp", specifier = ">=4.0.5" },
+    { name = "fastmcp-slim", extras = ["client"], specifier = ">=4.0.5" },
     { name = "langchain", extras = ["mcp"], specifier = ">=1.4.2" },
     { name = "langchain-community", specifier = ">=0.4.2" },
     { name = "langchain-openai", specifier = ">=1.6.3" },
