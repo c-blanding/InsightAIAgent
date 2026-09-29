@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LumenShop — Home</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">LumenShop</a>
+        <button class="menu-toggle" type="button" data-menu-toggle>Menu</button>
+        <ul class="nav-links" data-nav-links>
+          <li><a href="/">Home</a></li>
+          <li><a href="/products.html">Products</a></li>
+          <li><a href="/cart.html">Cart <span class="cart-badge" data-cart-count>0</span></a></li>
+          <li><a href="/login.html">Login</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <div>
+          <p class="chip">Demo storefront for QA agents</p>
+          <h1>Everyday essentials, shipped with care.</h1>
+          <p>
+            Browse lamps, mugs, notebooks, and more. This site intentionally contains
+            UI, form, console, and network defects for diagnosis practice.
+          </p>
+          <div class="hero-actions">
+            <!-- BUG 18: primary CTA points at a missing /shop route -->
+            <a class="btn btn-primary" href="/shop">Shop now</a>
+            <a class="btn btn-secondary" href="/products.html">Browse catalog</a>
+            <!-- BUG 19: invisible overlay intercepts clicks on the CTA area -->
+            <div class="overlay-bug" aria-hidden="true"></div>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <h2>Today’s deal</h2>
+          <p class="muted">Free shipping over $50 — discount should appear in cart totals.</p>
+          <p class="price">$5 off</p>
+          <a href="/products.html">See products →</a>
+        </aside>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <h2>Why shoppers come back</h2>
+            <p>Simple checkout, clear pricing, helpful support.</p>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="stat-card panel">
+            <h3>Fair prices</h3>
+            <p class="muted">Transparent totals before you pay.</p>
+          </article>
+          <article class="stat-card panel">
+            <h3>Fast support</h3>
+            <p class="muted">Reach us from the contact page anytime.</p>
+          </article>
+          <article class="stat-card panel">
+            <h3>Secure checkout</h3>
+            <p class="muted">Card details never leave this demo browser session.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">© LumenShop test store — not a real shop.</div>
+    </footer>
+    <script src="/js/app.js"></script>
+  </body>
+</html>

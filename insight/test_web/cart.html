@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LumenShop — Cart</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">LumenShop</a>
+        <button class="menu-toggle" type="button" data-menu-toggle>Menu</button>
+        <ul class="nav-links" data-nav-links>
+          <li><a href="/">Home</a></li>
+          <li><a href="/products.html">Products</a></li>
+          <li><a href="/cart.html">Cart <span class="cart-badge" data-cart-count>0</span></a></li>
+          <li><a href="/login.html">Login</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="container section">
+      <div class="section-header">
+        <div>
+          <h2>Your cart</h2>
+          <p>Review quantities and totals before checkout.</p>
+        </div>
+        <a class="btn btn-secondary" href="/products.html">Continue shopping</a>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="alert alert-info hidden" data-cart-empty>
+            Your cart is empty. <a href="/products.html">Add a product</a> to get started.
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Qty</th>
+                <th>Line</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody data-cart-body></tbody>
+          </table>
+        </div>
+
+        <aside class="panel" data-cart-summary>
+          <h3>Order summary</h3>
+          <div class="summary-row"><span>Subtotal</span><span data-subtotal>$0.00</span></div>
+          <div class="summary-row"><span>Tax (8%)</span><span data-tax>$0.00</span></div>
+          <div class="summary-row"><span>Discount</span><span data-discount>$0.00</span></div>
+          <div class="summary-row summary-total"><span>Total</span><span data-total>$0.00</span></div>
+          <div class="form-actions">
+            <a class="btn btn-primary" href="/checkout.html">Proceed to checkout</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="container">© LumenShop test store — not a real shop.</div>
+    </footer>
+    <script src="/js/app.js"></script>
+  </body>
+</html>

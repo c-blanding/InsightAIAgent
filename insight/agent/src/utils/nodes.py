@@ -28,6 +28,17 @@ def create_plan(state: InsightGraphState):
 
 async def execute_plan(state: ExecutionState) -> InsightGraphState:
     """Run one plan step via Playwright MCP tools."""
+
+    tools_turns = state.get("tools_turns") or 0
+    if tools_turns >= max_turns:
+        plan.completed = True
+        return {
+            "plan": plan,
+            "step_findings": [StepFindings(findings="", error="Max tools turns reached")],
+            "completed": False,
+            "error": "max_tools_turns_reached",
+        }
+
     plan = state["plan"]
     if plan is None:
         return {
@@ -112,6 +123,7 @@ async def execute_plan(state: ExecutionState) -> InsightGraphState:
         "plan": plan,
         "completed": plan.completed,
         "error": findings.error,
+        "tools_turns": tools_turns + 1,
     }
     if not plan.completed and not findings.error:
         updates["current_step"] = current_step + 1

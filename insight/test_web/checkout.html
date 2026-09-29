@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LumenShop — Checkout</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">LumenShop</a>
+        <button class="menu-toggle" type="button" data-menu-toggle>Menu</button>
+        <ul class="nav-links" data-nav-links>
+          <li><a href="/">Home</a></li>
+          <li><a href="/products.html">Products</a></li>
+          <li><a href="/cart.html">Cart <span class="cart-badge" data-cart-count>0</span></a></li>
+          <li><a href="/login.html">Login</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="container section">
+      <div class="section-header">
+        <div>
+          <h2>Checkout</h2>
+          <p>Enter shipping and payment details to place a demo order.</p>
+        </div>
+        <a class="btn btn-secondary" href="/cart.html">Back to cart</a>
+      </div>
+
+      <div class="panel" style="max-width: 640px">
+        <div class="alert hidden" data-checkout-alert></div>
+        <form class="form-grid" data-checkout-form novalidate>
+          <label>
+            Full name
+            <input name="name" type="text" required placeholder="Alex Rivera" />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" required placeholder="alex@example.com" />
+          </label>
+          <label>
+            Shipping address
+            <textarea name="address" required placeholder="123 Main St, City, ST"></textarea>
+          </label>
+          <label>
+            Card number
+            <input name="card" type="text" required placeholder="4242 4242 4242 4242" autocomplete="off" />
+          </label>
+
+          <!-- BUG: unlabeled / visually hidden gate that enables Place order -->
+          <div style="position: absolute; left: -9999px">
+            <input type="checkbox" data-enable-checkout id="enable-checkout" />
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" data-checkout-submit disabled>
+              Place order
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="container">© LumenShop test store — not a real shop.</div>
+    </footer>
+    <script src="/js/app.js"></script>
+  </body>
+</html>

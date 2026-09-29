@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LumenShop — Products</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">LumenShop</a>
+        <button class="menu-toggle" type="button" data-menu-toggle>Menu</button>
+        <ul class="nav-links" data-nav-links>
+          <li><a href="/">Home</a></li>
+          <li><a href="/products.html">Products</a></li>
+          <li><a href="/cart.html">Cart <span class="cart-badge" data-cart-count>0</span></a></li>
+          <li><a href="/login.html">Login</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="container section">
+      <div class="section-header">
+        <div>
+          <h2>Products</h2>
+          <p data-promo>Loading promotions…</p>
+        </div>
+        <a class="btn btn-secondary" href="/cart.html">View cart</a>
+      </div>
+
+      <div class="search-bar">
+        <input
+          type="search"
+          data-product-search
+          placeholder="Search products (try “mug” or “Mug”)"
+          aria-label="Search products"
+        />
+        <button class="btn btn-primary" type="button" data-product-search-btn>Search</button>
+      </div>
+
+      <div class="alert hidden" data-products-alert></div>
+      <div class="grid" data-product-grid></div>
+    </main>
+
+    <footer class="footer">
+      <div class="container">© LumenShop test store — not a real shop.</div>
+    </footer>
+    <script src="/js/app.js"></script>
+  </body>
+</html>
