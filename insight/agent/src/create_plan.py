@@ -1,5 +1,12 @@
+import sys
+from pathlib import Path
+
+_SRC = Path(__file__).resolve().parent
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 
 from utils.nodes import create_plan
 from utils.states import InsightGraphState

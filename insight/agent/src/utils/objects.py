@@ -26,7 +26,8 @@ class Plan(BaseModel):
     def formatted_plan(self) -> str:
         return "\n".join(["Goal: " + self.goal + "\n"] + [f"{step.step}. {step.action} \n" for step in self.instructions])
 
-    
+class Report(BaseModel):
+    report: str = Field(None, description="Report of the bug")
 
 
 

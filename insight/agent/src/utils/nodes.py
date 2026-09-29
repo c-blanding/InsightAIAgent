@@ -5,9 +5,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from mcp_clients.playwright import PlaywrightMCP
 from utils.model import llm
-from utils.objects import Plan, StepFindings
-from utils.prompts import execute_plan_prompt, plan_intruction_prompt
-from utils.states import ExecutionState, InsightGraphState
+from utils.objects import Plan, Report, StepFindings
+from utils.prompts import execute_plan_prompt, plan_intruction_prompt, report_prompt
+from utils.states import ExecutionState, InsightGraphState, ReportState
 
 
 def create_plan(state: InsightGraphState):
@@ -116,3 +116,10 @@ async def execute_plan(state: ExecutionState) -> InsightGraphState:
     if not plan.completed and not findings.error:
         updates["current_step"] = current_step + 1
     return updates
+
+
+def finalize_report(state: ReportState) -> InsightGraphState:
+    report_llm = llm.with_structured_output(Report)
+    report = report_llm.invoke(report_prompt.format( step_findings=state.get("step_findings"), expected_behavior=state.get("expected_behavior"), url=state.get("url"), bug=state.get("bug_description")))
+
+    return {"report": report}

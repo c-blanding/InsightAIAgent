@@ -39,3 +39,15 @@ Rules:
    - which step(s) mattered
 Do not suggest code fixes. Stay in the browser.
 """
+
+report_prompt = """
+You are a QA and Debugging assistant.
+
+URL: {url}
+Bug description: {bug}
+Expected behavior: {expected_behavior}
+Step findings: {step_findings}
+
+Your job is to make a insightful and detailed report based of the information provided.
+
+"""
