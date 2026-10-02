@@ -22,6 +22,13 @@ class InsightGraphState(TypedDict):
     report: NotRequired[Report]
     timeline: NotRequired[Timeline]
 
+class CreateGraphState(TypedDict):
+    """State of the CreateGraph"""
+    bug_description: str
+    url: str
+    expected_behavior: Optional[str]
+    max_tools_turns: NotRequired[int]
+
 
 class ExecutionState(TypedDict):
     """State of the Execution"""
@@ -39,9 +46,11 @@ class ExecutionState(TypedDict):
 
 
 class ReportState(TypedDict):
-    report: Report
+    """State of the Report"""
     plan: Plan
     step_findings: list[StepFindings]
+    error: Optional[str]
+    completed: bool
     bug_description: str
     url: str
     expected_behavior: Optional[str]

@@ -27,27 +27,9 @@ from utils.edges import AUTH_EXPIRED
 from utils.model import llm
 from utils.objects import ArtifactRef, Plan, Report, StepFindings
 from utils.prompts import auth_note, execute_plan_prompt, plan_intruction_prompt, report_prompt
-from utils.states import ExecutionState, InsightGraphState, ReportState
+from utils.states import CreateGraphState, ExecutionState, InsightGraphState, ReportState
 
 
-def create_plan(state: InsightGraphState):
-    url = state["url"]
-    bug = state["bug_description"]
-
-    system_message = plan_intruction_prompt.format(
-        url=url,
-        bug=bug,
-        auth_note=auth_note(state.get("auth_profile_id"), stage="plan"),
-    )
-
-    plan_llm = llm.with_structured_output(Plan)
-
-    plan = plan_llm.invoke(
-        [SystemMessage(content=system_message)]
-        + [HumanMessage(content="Please give me a plan to find this bug")]
-    )
-
-    return {"plan": plan, "current_step": 1, "completed": False, "step_findings": []}
 
 
 def _merge_artifacts(
@@ -98,10 +80,28 @@ def _needs_login(message: str) -> InsightGraphState:
         "error": AUTH_EXPIRED,
     }
 
+def create_plan(state: CreateGraphState) -> ExecutionState:
+    url = state["url"]
+    bug = state["bug_description"]
+
+    system_message = plan_intruction_prompt.format(
+        url=url,
+        bug=bug,
+        auth_note=auth_note(state.get("auth_profile_id"), stage="plan"),
+    )
+
+    plan_llm = llm.with_structured_output(Plan)
+
+    plan = plan_llm.invoke(
+        [SystemMessage(content=system_message)]
+        + [HumanMessage(content="Please give me a plan to find this bug")]
+    )
+
+    return {"plan": plan, "current_step": 1, "completed": False, "step_findings": []}
 
 async def execute_plan(
     state: ExecutionState, config: RunnableConfig
-) -> InsightGraphState:
+) -> [ExecutionState, ReportState]:
     """Run one plan step via Playwright MCP tools."""
 
     thread_id = thread_id_from_config(config)
@@ -384,6 +384,8 @@ def finalize_report(
             expected_behavior=state.get("expected_behavior"),
             url=state.get("url"),
             bug=state.get("bug_description"),
+            timeline=state.get("timeline"),
+            plan_completed=state.get("plan").completed,
         )
     )
 
