@@ -1,6 +1,6 @@
 """Insight AI Agent — LangGraph pipeline + programmatic API.
 
-Studio / ``langgraph.json`` use the module-level ``graph``.
+Studio / ``langgraph.json`` use ``insightaiagent_graph.py``.
 Application code should use ``InsightAgent``.
 """
 
@@ -33,12 +33,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
-from evidence.session import normalize_thread_id, release
-from runtime_paths import playwright_mcp_url
-from utils.edges import insight_after_execute
-from utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
-from utils.objects import Plan, Report, StepFindings, Timeline
-from utils.states import InsightGraphState
+from src.evidence.session import normalize_thread_id, release
+from src.runtime_paths import playwright_mcp_url
+from src.utils.edges import insight_after_execute
+from src.utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
+from src.utils.objects import Plan, Report, StepFindings, Timeline
+from src.utils.states import InsightGraphState
 
 load_dotenv()
 
@@ -124,7 +124,7 @@ class InsightPreflightError(InsightAgentError, RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Graph factory (Studio keeps ``graph``; the class compiles with a checkpointer)
+# Graph factory (Studio entry: insightaiagent_graph.py; class adds a checkpointer)
 # ---------------------------------------------------------------------------
 
 
@@ -145,10 +145,6 @@ def build_graph(*, checkpointer: BaseCheckpointSaver | None = None):
     builder.add_edge("wait_for_login", "execute_plan")
     builder.add_edge("finalize_report", END)
     return builder.compile(checkpointer=checkpointer)
-
-
-# LangGraph Studio / ``langgraph.json`` — platform supplies its own checkpointer.
-graph = build_graph()
 
 
 # ---------------------------------------------------------------------------

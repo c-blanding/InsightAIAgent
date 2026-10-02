@@ -43,7 +43,7 @@ Registered in `langgraph.json`:
 
 | Graph ID | Module | Use |
 |----------|--------|-----|
-| `insightaiagent` | `insight/agent/src/insightaiagent/agent.py` | End-to-end plan → execute → report |
+| `insightaiagent` | `insight/agent/src/insightaiagent_graph.py` | End-to-end plan → execute → report |
 | `create_plan` | `insight/agent/src/create_plan.py` | Plan generation only |
 | `execute_plan` | `insight/agent/src/execute_plan.py` | Execution with conditional loop until complete |
 
