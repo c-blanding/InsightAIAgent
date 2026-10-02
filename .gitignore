@@ -2,3 +2,9 @@
 __pycache__/
 .idea/
 .langgraph_api/
+.insight_auth/
+.insight_media/
+auth-state.json
+storage-state-*.json
+.neon
+node_modules/

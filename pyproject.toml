@@ -8,12 +8,16 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "boto3>=1.35.0",
     "colorama>=0.4.6",
+    "cryptography>=44.0.0",
     "dotenv>=0.9.9",
     "langchain[mcp]>=1.4.2",
     "langchain-community>=0.4.2",
     "langchain-openai>=1.6.3",
     "langchain-tavily>=0.2.18",
+    "psycopg[binary]>=3.2.0",
+    "sqlalchemy>=2.0.36",
     "langgraph>=1.2.12",
     "langgraph-cli[inemem,inmem]>=0.4.31",
     "fastmcp>=4.0.5",
