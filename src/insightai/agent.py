@@ -19,12 +19,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-# agent.py lives in src/insightai/; inner ``src/`` holds utils, db, evidence, …
-_PKG_ROOT = Path(__file__).parent
-if not _PKG_ROOT.is_absolute():
+# agent.py lives in src/insightai/; put src/insightai/src on path for utils/db/…
+_SRC_ROOT = Path(__file__).parent / "src"
+if not _SRC_ROOT.is_absolute():
     raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
-if str(_PKG_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PKG_ROOT))
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
 
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
@@ -33,12 +33,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
-from src.evidence.session import normalize_thread_id, release
-from src.runtime_paths import playwright_mcp_url
-from src.utils.edges import insight_after_execute
-from src.utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
-from src.utils.objects import Plan, Report, StepFindings, Timeline
-from src.utils.states import InsightGraphState
+from evidence.session import normalize_thread_id, release
+from runtime_paths import playwright_mcp_url
+from utils.edges import insight_after_execute
+from utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
+from utils.objects import Plan, Report, StepFindings, Timeline
+from utils.states import InsightGraphState
 
 load_dotenv()
 
