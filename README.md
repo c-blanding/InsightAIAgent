@@ -2,25 +2,39 @@
 
 Insight AI Agent is a LangGraph application that takes a URL and a bug description, plans how to reproduce the issue in a real browser, runs that plan through Playwright MCP, and produces a structured QA report. Work stays in the browser: navigation, snapshots, clicks, typing, console, and network—no code-change recommendations in the execution path.
 
+Evidence (screenshots, video, console/network/snapshot logs, timeline events) and a full run summary (plan, findings, timeline, report) are persisted to Neon Postgres and Object Storage via SQLAlchemy.
+
 ## Pipeline
 
-The main graph **`insightaiagent`** runs three stages in order:
+The main graph **`insightaiagent`** flow:
 
 1. **Create plan** — LLM outputs a structured `Plan`: ordered steps that are browser interactions only (aligned with Playwright MCP tools).
-2. **Execute plan** — A tool-using agent connects to Playwright MCP, opens the URL, works through plan steps, and returns `StepFindings` per step. The standalone `execute_plan` graph can loop until all steps are done.
-3. **Finalize report** — LLM synthesizes `step_findings` (and optional `expected_behavior`) into a `Report`.
+2. **Execute plan** — A tool-using agent connects to Playwright MCP, opens the URL, works through plan steps, and returns `StepFindings` per step (with screenshots, console/network/snapshot logs, and timeline events). Loops until all steps complete.
+3. **Finalize report** — LLM synthesizes `step_findings` (and optional `expected_behavior`) into a `Report`, then upserts a `runs` row (bug, URL, plan, findings, assembled timeline, report).
+
+Optional side path: if a step hits a login wall (`auth_expired`), **wait_for_login** interrupts for Continue, saves the session, then returns to **execute_plan**. Most runs never enter that node.
 
 ```text
-url + bug_description
+START
+  │
+  ▼
+create_plan
+  │
+  ▼
+execute_plan ◄──────────────┐
+  │                         │
+  ├── more steps ───────────┘
+  │
+  ├── auth_expired only ──► wait_for_login ──► execute_plan
+  │                         (interrupt → Continue)
+  │
+  └── done / error
         │
         ▼
-   create_plan  ──►  Plan
+  finalize_report ──► Report + runs upsert
         │
         ▼
-  execute_plan  ──►  StepFindings[]  (Playwright MCP)
-        │
-        ▼
- finalize_report ──►  Report
+       END
 ```
 
 ## Graphs
@@ -56,7 +70,14 @@ Typical Studio or API input:
 
 Important state fields: `plan`, `current_step`, `step_findings` (append-only list), `completed`, `error`, `report`.
 
-Domain models live in `insight/agent/src/utils/objects.py`: `Plan`, `Steps`, `StepFindings`, `Report`.
+Domain models live in `insight/agent/src/utils/objects.py`:
+
+| Model | Role |
+|-------|------|
+| `Plan`, `Steps`, `StepFindings`, `ArtifactRef` | Plan + per-step findings / media refs |
+| `Report` | Final QA write-up |
+| `Timeline`, `TimelineEvent`, … | Merged timeline / action-log view |
+| `Run` | Persisted run summary (inputs + plan + findings + timeline + report) |
 
 ## Repository layout
 
@@ -64,29 +85,35 @@ Domain models live in `insight/agent/src/utils/objects.py`: `Plan`, `Steps`, `St
 InsightAIAgent/
 ├── langgraph.json
 ├── pyproject.toml
+├── neon.ts                     # Neon config (Auth, Object Storage buckets)
 ├── .env.example
+├── scripts/
+│   └── start-playwright-mcp.bat
 ├── insight/
 │   ├── agent/src/
-│   │   ├── auth/                 # encrypted session store + capture CLI
-│   │   ├── db/                   # SQLAlchemy models + Database helper
-│   │   ├── evidence/             # shared Playwright session + media upload
+│   │   ├── auth/               # encrypted session store + capture CLI
+│   │   ├── db/                 # SQLAlchemy models, Database helper, schema SQL
+│   │   ├── evidence/           # session, capture, uploads, timeline, save_run
 │   │   ├── create_plan.py
 │   │   ├── execute_plan.py
 │   │   ├── insightaiagent/agent.py
 │   │   ├── mcp_clients/playwright.py
-│   │   └── utils/                # nodes, prompts, states, edges, model
-│   └── test_web/                 # LumenShop demo storefront (optional QA target)
+│   │   ├── runtime_paths.py
+│   │   └── utils/              # nodes, prompts, states, edges, model, logging
+│   └── test_web/               # LumenShop demo storefront (optional QA target)
 └── README.md
 ```
 
-Playwright integration: `PlaywrightMCP` talks to `http://localhost:8931/mcp`, sanitizes tool schemas for OpenAI, and keeps cookie/storage/evaluate tools off the model tool list.
+Playwright integration: `PlaywrightMCP` talks to `http://localhost:8931/mcp` (or `PLAYWRIGHT_MCP_URL`), sanitizes tool schemas for OpenAI, and keeps cookie/storage/evaluate tools off the model tool list.
 
 ## Requirements
 
-- Python ≥ 3.11  
-- OpenAI API key  
-- Node.js (for Playwright MCP via `npx`)  
-- Optional: LangSmith for tracing  
+- Python ≥ 3.11
+- OpenAI API key
+- Node.js (for Playwright MCP via `npx`)
+- Neon Postgres (`DATABASE_URL`) for runs, logs, timeline, and auth sessions
+- Optional: Neon Object Storage (`AWS_*` S3-compatible vars) for screenshot/video uploads
+- Optional: LangSmith for tracing
 
 ## Setup
 
@@ -102,7 +129,7 @@ Copy environment variables:
 copy .env.example .env
 ```
 
-Set at least `OPENAI_API_KEY` in `.env`.
+Set at least `OPENAI_API_KEY` and `DATABASE_URL` in `.env`. Prefer the pooled Neon URL for app traffic and `DATABASE_URL_UNPOOLED` for schema/DDL. See `.env.example` for auth, Object Storage, and Playwright MCP options.
 
 Start Playwright MCP in a separate terminal (headed browser by default). All
 snapshots, video, and traces stay under `.playwright-mcp` (or `INSIGHT_MEDIA_DIR`).
@@ -133,6 +160,40 @@ langgraph dev
 
 Use Studio or the local API to invoke **`insightaiagent`**. If Studio cannot reach localhost, allow local network access for LangSmith or run `langgraph dev --tunnel`.
 
+## Database (SQLAlchemy + Neon)
+
+Connection and CRUD live in `insight/agent/src/db/`:
+
+```python
+from db import get_database, Run
+from utils.objects import Run as RunModel  # pydantic summary
+
+db = get_database()       # DATABASE_URL (pooled OK)
+db.create_tables()        # idempotent; prefer DATABASE_URL_UNPOOLED for first DDL
+
+db.upsert_run(...)
+db.insert_run_artifact(...)
+db.insert_run_log(...)
+db.insert_run_event(...)
+```
+
+| Table | Purpose | Schema |
+|-------|---------|--------|
+| `runs` | Full run summary: bug, URL, expected behavior, plan, step_findings, timeline, report | `db/schema_runs.sql` |
+| `run_artifacts` | Screenshot/video object-storage metadata (`bucket` + `object_key`) | `evidence/schema.sql` |
+| `run_logs` | Console / network / snapshot / info text logs | `db/schema.sql` |
+| `run_events` | Ordered timeline / action breadcrumbs | `evidence/schema_events.sql` |
+| `auth_sessions` | Encrypted Playwright storage-state blobs | `auth/schema.sql` |
+
+Helpers:
+
+- `Database.from_env()` / `get_database()` — app traffic (`DATABASE_URL`)
+- `Database.for_migrations()` — DDL (`DATABASE_URL_UNPOOLED` when set)
+- `Database.for_auth()` / `get_auth_database()` — `AUTH_DATABASE_URL` or `DATABASE_URL`
+- Pooled Neon hosts (`-pooler`) use `NullPool`
+
+Tables are also created on first use via `create_tables()` when the process can reach Postgres.
+
 ## Auth sessions and security
 
 Authenticated tests may use an optional `auth_profile_id`. That name is not a secret. The password, cookies, and storage-state JSON never go in graph input, checkpoints, or prompts.
@@ -150,8 +211,8 @@ Auth is not requested up front. If a plan step hits a login page, the executor s
 
 - Cookies and `localStorage` for one origin are encrypted with AES-GCM using `AUTH_DATA_KEY` (from `.env` on this machine). Only ciphertext, nonce, origin, and expiry are written to Postgres (`AUTH_DATABASE_URL`, or `DATABASE_URL` when unset).
 - The ciphertext is bound to `profile_id` + `origin`, so swapping rows in the database fails decryption.
-- A remote database URL must set `sslmode=require` (Neon), `verify-ca`, or `verify-full`. Prefer a role that can only `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `auth_sessions`, not a superuser. Tables are managed via SQLAlchemy models in `insight/agent/src/db/` (see also `auth/schema.sql` / `evidence/schema.sql`).
-- Scratch files under `.insight_auth/` (gitignored) exist only while Playwright restores or exports the session, then are deleted. On Windows the directory is locked to the current user with `icacls`.
+- A remote database URL must set `sslmode=require` (Neon), `verify-ca`, or `verify-full`. Prefer a role that can only `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `auth_sessions`, not a superuser.
+- Scratch files under `.insight_auth/` or `INSIGHT_AUTH_SCRATCH_DIR` (gitignored) exist only while Playwright restores or exports the session, then are deleted. On Windows the directory is locked to the current user with `icacls`.
 
 **Optional CLI setup**
 
@@ -159,7 +220,7 @@ You can still pre-save a session without waiting for a login wall:
 
 ```powershell
 .\.venv\Scripts\python.exe insight\agent\src\auth\capture.py generate-key
-# put AUTH_DATA_KEY and AUTH_DATABASE_URL in .env (see .env.example)
+# put AUTH_DATA_KEY and AUTH_DATABASE_URL (or DATABASE_URL) in .env
 
 .\.venv\Scripts\python.exe insight\agent\src\auth\capture.py save --profile my-app --origin https://app.example.com --login-url https://app.example.com/login
 .\.venv\Scripts\python.exe insight\agent\src\auth\capture.py list
@@ -184,7 +245,7 @@ One Playwright MCP client is reused for the whole LangGraph thread. The harness 
 | Network | After navigate / form fill / submit-like clicks (failures and HTTP ≥ 400) | Postgres `run_logs` (`kind=network`) |
 | Snapshot | After each `browser_snapshot` (a11y tree, redacted, capped) | Postgres `run_logs` (`kind=snapshot`) |
 
-Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (see `insight/agent/src/evidence/schema.sql`). Console, network, and accessibility snapshots are logged via [`utils.logging.Logging`](insight/agent/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
+Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (`kind` is `screenshot` \| `video`). Console, network, and accessibility snapshots are logged via [`utils.logging.Logging`](insight/agent/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
 
 Login walls skip screenshots when the page looks like a password form, and `auth_expired` steps drop screenshot artifacts. Evidence upload/logging is best-effort: missing AWS env or tables logs a warning and the QA run continues.
 
@@ -194,18 +255,37 @@ video under that directory are removed when the graph finishes and uploads succe
 
 ### Timeline and action log
 
-Every run writes structured breadcrumbs to Postgres ``run_events`` (session, steps,
+Every run writes structured breadcrumbs to Postgres `run_events` (session, steps,
 tools, screenshots, snapshots, auth, uploads). Console/network/snapshot text stays
-in ``run_logs``; media pointers in ``run_artifacts``.
+in `run_logs`; media pointers in `run_artifacts`.
 
-Dump a thread's timeline:
+`assemble_timeline(thread_id)` returns a `Timeline` model (events, actions, chapters, artifacts, logs). Dump a thread:
 
 ```powershell
 .\.venv\Scripts\python.exe insight\agent\src\evidence\timeline_cli.py <thread_id> --pretty
 .\.venv\Scripts\python.exe insight\agent\src\evidence\timeline_cli.py <thread_id> --actions-only --pretty
 ```
 
-`assemble_timeline(thread_id)` returns `{events, actions, chapters, artifacts, logs}`.
+### Persisted runs
+
+On `finalize_report`, `evidence.runs.save_run_from_state` upserts one `runs` row keyed by LangGraph `thread_id`, including:
+
+- `bug_description`, `url`, `expected_behavior`
+- `plan`, `step_findings`
+- assembled `timeline`
+- `report` (and `error` / `completed` when set)
+
+Secrets in payloads are redacted before insert. Persistence is best-effort and must not fail report generation.
+
+```python
+from evidence import save_run_from_state, assemble_timeline
+from db import get_database
+
+# Manual save / load
+save_run_from_state(state, config=config, report=report)
+row = get_database().get_run(thread_id)
+timeline = assemble_timeline(thread_id)
+```
 
 ## Demo storefront
 
@@ -219,9 +299,10 @@ See `insight/test_web/README.md` for run instructions and sample bug scenarios; 
 
 ## Development notes
 
-- Default chat model: `gpt-4o` in `insight/agent/src/utils/model.py`.
+- Default chat model: `gpt-4o` in `insight/agent/src/utils/model.py` (override with `OPENAI_MODEL`).
 - Do not add a top-level Python package named `mcp` under the agent source tree; it shadows the official MCP SDK. This repo uses `mcp_clients/`.
 - After graph or state shape changes, start a new Studio thread so checkpointed state does not conflict with reducers (e.g. `step_findings` must be appended as lists).
+- Keep schema SQL, SQLAlchemy models, and the live Neon schema in sync when changing tables.
 
 ## Package metadata
 
