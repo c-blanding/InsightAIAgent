@@ -30,6 +30,10 @@ python -m http.server 5500 --directory insight/test_web
 | `/contact.html` | Contact form false success |
 | `/account.html` | Infinite loading state |
 
+## Auth note
+
+LumenShop prints demo credentials on `/login.html`. A successful sign-in only redirects to `/account` and does not set a cookie or `localStorage`, so session capture for this origin is rejected. Leave `auth_profile_id` off the samples below. See the root README section **Auth sessions and security** for how authenticated runs work against real apps.
+
 ## Sample agent inputs
 
 Use these as `url` + `bug_description` / `expected_behavior` for the graph:

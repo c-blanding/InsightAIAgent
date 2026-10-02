@@ -15,6 +15,8 @@ Important tool facts for the plan:
 - After each navigation or interaction, the agent should capture a page snapshot (browser_snapshot) before deciding the next click/type.
 - Prefer concrete UI actions: navigate, click, type, select, wait for text, read console/network.
 
+{auth_note}
+
 Keep the steps short and to the point.
 Dont mention things like document or check for errors. It should just be a recipe for finding the bug.
 """
@@ -38,7 +40,29 @@ Rules:
    - whether the bug was reproduced
    - which step(s) mattered
 Do not suggest code fixes. Stay in the browser.
+
+{auth_note}
 """
+
+
+def auth_note(profile_id: str | None, *, stage: str) -> str:
+    """Instructions that keep passwords out of the plan and the browser agent."""
+    login_wall = (
+        "If a login page or sign-in wall appears, stop immediately and set error to "
+        "auth_expired. Do not invent or type a username or password."
+    )
+    if not (profile_id or "").strip():
+        return f"No saved session is loaded. {login_wall}"
+    if stage == "plan":
+        return (
+            "A saved browser session for this site may be restored before execution. "
+            "Plan only the steps that reproduce the bug. Do not include a login or typing a password. "
+            f"{login_wall}"
+        )
+    return (
+        "A saved browser session for this site is restored when available. "
+        f"{login_wall}"
+    )
 
 report_prompt = """
 You are a QA and Debugging assistant.
@@ -49,5 +73,7 @@ Expected behavior: {expected_behavior}
 Step findings: {step_findings}
 
 Your job is to make a insightful and detailed report based of the information provided.
-
+When step findings include artifacts (bucket + object_key for screenshots or video),
+mention which evidence belongs to which step by key. Do not invent URLs or embed file contents.
+Console and network details are stored as run logs, not as object artifacts.
 """

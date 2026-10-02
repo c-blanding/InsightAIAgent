@@ -4,7 +4,10 @@ __pycache__/
 .langgraph_api/
 .insight_auth/
 .insight_media/
+.playwright-mcp/
+runs/
 auth-state.json
 storage-state-*.json
 .neon
 node_modules/
+.agents

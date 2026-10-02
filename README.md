@@ -51,6 +51,7 @@ Typical Studio or API input:
 | `url` | Application under test |
 | `bug_description` | What is going wrong |
 | `expected_behavior` | Optional; used when writing the final report |
+| `auth_profile_id` | Optional name of a saved browser session. The password is not an input. |
 | `max_tools_turns` | Budget for tool use during a step (default 30) |
 
 Important state fields: `plan`, `current_step`, `step_findings` (append-only list), `completed`, `error`, `report`.
@@ -66,16 +67,19 @@ InsightAIAgent/
 ├── .env.example
 ├── insight/
 │   ├── agent/src/
+│   │   ├── auth/                 # encrypted session store + capture CLI
+│   │   ├── db/                   # SQLAlchemy models + Database helper
+│   │   ├── evidence/             # shared Playwright session + media upload
 │   │   ├── create_plan.py
 │   │   ├── execute_plan.py
 │   │   ├── insightaiagent/agent.py
 │   │   ├── mcp_clients/playwright.py
-│   │   └── utils/          # nodes, prompts, states, edges, model
-│   └── test_web/           # LumenShop demo storefront (optional QA target)
+│   │   └── utils/                # nodes, prompts, states, edges, model
+│   └── test_web/                 # LumenShop demo storefront (optional QA target)
 └── README.md
 ```
 
-Playwright integration: `PlaywrightMCP` talks to `http://localhost:8931/mcp`, sanitizes tool schemas for OpenAI, and excludes tools that cannot be bound (e.g. `browser_drop`).
+Playwright integration: `PlaywrightMCP` talks to `http://localhost:8931/mcp`, sanitizes tool schemas for OpenAI, and keeps cookie/storage/evaluate tools off the model tool list.
 
 ## Requirements
 
@@ -100,11 +104,26 @@ copy .env.example .env
 
 Set at least `OPENAI_API_KEY` in `.env`.
 
-Start Playwright MCP in a separate terminal (headed browser by default):
+Start Playwright MCP in a separate terminal (headed browser by default). Use the
+same media directory the agent uses (`INSIGHT_MEDIA_DIR`, default `.insight_media`).
+Video also needs Playwright's ffmpeg binary once:
 
 ```powershell
-npx @playwright/mcp@latest --port 8931
+npx playwright install ffmpeg
+.\scripts\start-playwright-mcp.bat
 ```
+
+Or manually:
+
+```powershell
+npx @playwright/mcp@latest --port 8931 --caps=storage,devtools --isolated --output-dir .insight_media
+```
+
+`--caps=devtools` is required for video. Without it, `browser_start_video` is missing
+and runs continue with no recording. For hosted / sidecar deploys set `PLAYWRIGHT_MCP_URL`
+to the MCP HTTP URL and point both processes at the same absolute `INSIGHT_MEDIA_DIR`
+(and Neon `DATABASE_URL` / `AWS_*` for durable evidence). Local scratch stays ephemeral;
+screenshots and video upload to Neon Object Storage when configured.
 
 Run the LangGraph dev server:
 
@@ -113,6 +132,62 @@ langgraph dev
 ```
 
 Use Studio or the local API to invoke **`insightaiagent`**. If Studio cannot reach localhost, allow local network access for LangSmith or run `langgraph dev --tunnel`.
+
+## Auth sessions and security
+
+Authenticated tests may use an optional `auth_profile_id`. That name is not a secret. The password, cookies, and storage-state JSON never go in graph input, checkpoints, or prompts.
+
+**Login wall (Continue button)**
+
+Auth is not requested up front. If a plan step hits a login page, the executor sets `error` to `auth_expired` without completing the step. The graph routes to `wait_for_login`, which calls LangGraph `interrupt` so Studio (or your frontend) can show **Continue**. Sign in in the headed Playwright window, then Continue with an empty resume or `{ "confirmed": true }` — never the password. After resume the node exports the browser storage state, encrypts it into Postgres, sets `auth_profile_id` if missing, and retries the same step.
+
+**What must stay out of the graph**
+
+- Do not put a password, cookie jar, `Authorization` header, or Playwright storage-state JSON in `bug_description`, `expected_behavior`, the Continue/resume payload, or any other state field. Those values are checkpointed and can be traced (including LangSmith if tracing is on).
+- The model does not receive cookie tools, `localStorage` / `sessionStorage` tools, `browser_storage_state`, `browser_set_storage_state`, `browser_evaluate`, `browser_run_code_unsafe`, or video start/stop tools. Network and console tool output is redacted (cookies, auth headers, API keys, JWTs, and common password/token JSON fields) before it is stored on a step or sent to the report model.
+
+**Where the session lives**
+
+- Cookies and `localStorage` for one origin are encrypted with AES-GCM using `AUTH_DATA_KEY` (from `.env` on this machine). Only ciphertext, nonce, origin, and expiry are written to Postgres (`AUTH_DATABASE_URL`, or `DATABASE_URL` when unset).
+- The ciphertext is bound to `profile_id` + `origin`, so swapping rows in the database fails decryption.
+- A remote database URL must set `sslmode=require` (Neon), `verify-ca`, or `verify-full`. Prefer a role that can only `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `auth_sessions`, not a superuser. Tables are managed via SQLAlchemy models in `insight/agent/src/db/` (see also `auth/schema.sql` / `evidence/schema.sql`).
+- Scratch files under `.insight_auth/` (gitignored) exist only while Playwright restores or exports the session, then are deleted. On Windows the directory is locked to the current user with `icacls`.
+
+**Optional CLI setup**
+
+You can still pre-save a session without waiting for a login wall:
+
+```powershell
+.\.venv\Scripts\python.exe insight\agent\src\auth\capture.py generate-key
+# put AUTH_DATA_KEY and AUTH_DATABASE_URL in .env (see .env.example)
+
+.\.venv\Scripts\python.exe insight\agent\src\auth\capture.py save --profile my-app --origin https://app.example.com --login-url https://app.example.com/login
+.\.venv\Scripts\python.exe insight\agent\src\auth\capture.py list
+.\.venv\Scripts\python.exe insight\agent\src\auth\capture.py revoke --profile my-app
+```
+
+If `auth_profile_id` is set and a matching unexpired row exists, the shared Playwright client restores it once before the model runs. Changing `AUTH_DATA_KEY` does not re-encrypt old rows; revoke and save again.
+
+**Limits**
+
+Playwright storage state covers cookies and `localStorage` only. Sessions that live only in `sessionStorage` are not restored. LumenShop’s login redirects on success but does not set a cookie or `localStorage`, so a capture for that demo is rejected until the site under test actually stores a session. `interrupt` requires a checkpointer (provided by `langgraph dev` / Studio).
+
+## Run evidence (screenshots, video, console, network)
+
+One Playwright MCP client is reused for the whole LangGraph thread. The harness (not the model) owns durable evidence:
+
+| Kind | When | Where |
+|------|------|--------|
+| Screenshot | After navigate / click / type / fill / select / keypress | Neon bucket `insight-screenshots` + `run_artifacts` |
+| Video | Continuous for the run (`browser_start_video` → stop on finish) | Neon bucket `insight-videos` + `run_artifacts` |
+| Console | End of each step (errors + last lines, redacted, capped) | Postgres `run_logs` (`kind=console`) |
+| Network | After navigate / form fill / submit-like clicks (failures and HTTP ≥ 400) | Postgres `run_logs` (`kind=network`) |
+
+Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (see `insight/agent/src/evidence/schema.sql`). Console and network are logged via [`utils.logging.Logging`](insight/agent/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
+
+Login walls skip screenshots when the page looks like a password form, and `auth_expired` steps drop screenshot artifacts. Evidence upload/logging is best-effort: missing AWS env or tables logs a warning and the QA run continues.
+
+Start MCP with `--output-dir .insight_media` (gitignored). Local files under that directory are deleted after a successful upload.
 
 ## Demo storefront
 
