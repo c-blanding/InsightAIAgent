@@ -369,14 +369,40 @@ async def wait_for_login(
     }
 
 
-def finalize_report(state: ReportState) -> InsightGraphState:
+def finalize_report(
+    state: ReportState, config: RunnableConfig
+) -> InsightGraphState:
     report_llm = llm.with_structured_output(Report)
     findings = state.get("step_findings") or []
     safe_findings = [
         redact_secrets(item.model_dump()) if hasattr(item, "model_dump") else redact_secrets(item)
         for item in findings
     ]
-    report = report_llm.invoke(report_prompt.format( step_findings=safe_findings, expected_behavior=state.get("expected_behavior"), url=state.get("url"), bug=state.get("bug_description")))
+    report = report_llm.invoke(
+        report_prompt.format(
+            step_findings=safe_findings,
+            expected_behavior=state.get("expected_behavior"),
+            url=state.get("url"),
+            bug=state.get("bug_description"),
+        )
+    )
+
+    try:
+        from evidence.runs import save_run_from_state
+
+        save_run_from_state(
+            dict(state),
+            config=config,
+            report=report,
+            completed=True,
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Failed to persist run summary",
+            exc_info=True,
+        )
 
     return {"report": report}
 

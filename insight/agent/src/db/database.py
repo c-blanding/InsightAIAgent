@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from db.models import AuthSession, Base, RunArtifact, RunEvent, RunLog
+from db.models import AuthSession, Base, Run, RunArtifact, RunEvent, RunLog
 
 _ARTIFACT_KINDS = frozenset({"screenshot", "video"})
 _LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})
@@ -461,6 +461,82 @@ class Database:
                 delete(RunEvent).where(RunEvent.thread_id == thread_id)
             )
             return result.rowcount or 0
+
+    # ------------------------------------------------------------------
+    # Runs (persisted QA run summaries)
+    # ------------------------------------------------------------------
+
+    def upsert_run(
+        self,
+        *,
+        thread_id: str,
+        bug_description: str,
+        url: str,
+        expected_behavior: str | None = None,
+        plan: dict[str, Any] | None = None,
+        step_findings: list[Any] | None = None,
+        timeline: dict[str, Any] | None = None,
+        report: dict[str, Any] | None = None,
+        error: str | None = None,
+        completed: bool = False,
+    ) -> Run:
+        findings = step_findings if step_findings is not None else []
+        values = {
+            "thread_id": thread_id,
+            "bug_description": bug_description,
+            "url": url,
+            "expected_behavior": expected_behavior,
+            "plan": plan,
+            "step_findings": findings,
+            "timeline": timeline,
+            "report": report,
+            "error": error,
+            "completed": completed,
+        }
+        stmt = (
+            pg_insert(Run)
+            .values(**values)
+            .on_conflict_do_update(
+                index_elements=[Run.thread_id],
+                set_={
+                    "bug_description": bug_description,
+                    "url": url,
+                    "expected_behavior": expected_behavior,
+                    "plan": plan,
+                    "step_findings": findings,
+                    "timeline": timeline,
+                    "report": report,
+                    "error": error,
+                    "completed": completed,
+                    "updated_at": func.now(),
+                },
+            )
+            .returning(Run)
+        )
+        with self.session() as session:
+            row = session.scalars(stmt).one()
+            session.expunge(row)
+            return row
+
+    def get_run(self, thread_id: str) -> Optional[Run]:
+        with self.session() as session:
+            row = session.scalar(select(Run).where(Run.thread_id == thread_id))
+            if row is not None:
+                session.expunge(row)
+            return row
+
+    def list_runs(self, *, limit: int = 50) -> list[Run]:
+        with self.session() as session:
+            stmt = select(Run).order_by(Run.created_at.desc()).limit(max(1, limit))
+            rows = list(session.scalars(stmt).all())
+            for row in rows:
+                session.expunge(row)
+            return rows
+
+    def delete_run(self, thread_id: str) -> bool:
+        with self.session() as session:
+            result = session.execute(delete(Run).where(Run.thread_id == thread_id))
+            return (result.rowcount or 0) > 0
 
 
 _default_db: Database | None = None

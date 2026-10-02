@@ -3,7 +3,7 @@ from typing import Annotated, NotRequired, Optional
 
 from typing_extensions import TypedDict
 
-from utils.objects import Plan, Report, StepFindings
+from utils.objects import Plan, Report, StepFindings, Timeline
 
 
 class InsightGraphState(TypedDict):
@@ -20,6 +20,7 @@ class InsightGraphState(TypedDict):
     step_findings: NotRequired[Annotated[list[StepFindings], operator.add]]
     completed: NotRequired[bool]
     report: NotRequired[Report]
+    timeline: NotRequired[Timeline]
 
 
 class ExecutionState(TypedDict):
@@ -34,6 +35,7 @@ class ExecutionState(TypedDict):
     error: Optional[str]
     step_findings: Annotated[list[StepFindings], operator.add]
     completed: bool
+    timeline: Timeline
 
 
 class ReportState(TypedDict):
@@ -43,3 +45,4 @@ class ReportState(TypedDict):
     bug_description: str
     url: str
     expected_behavior: Optional[str]
+    timeline: Timeline

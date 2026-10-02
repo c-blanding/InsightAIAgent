@@ -145,12 +145,14 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat()
 
 
-def assemble_timeline(thread_id: str) -> dict[str, Any]:
+def assemble_timeline(thread_id: str) -> Timeline:
     """Build a merged timeline + action log for ``thread_id``.
 
     Primary spine: ``run_events``. Also folds in ``run_artifacts`` and
     ``run_logs`` that may not have a matching event yet (legacy / best-effort).
     """
+    from utils.objects import Timeline
+
     key = (thread_id or "").strip() or "local"
     db = _db()
     events: list[dict[str, Any]] = []
@@ -159,15 +161,10 @@ def assemble_timeline(thread_id: str) -> dict[str, Any]:
     logs: list[dict[str, Any]] = []
 
     if db is None:
-        return {
-            "thread_id": key,
-            "events": [],
-            "actions": [],
-            "artifacts": [],
-            "logs": [],
-            "chapters": [],
-            "error": "DATABASE_URL unset or database unavailable",
-        }
+        return Timeline(
+            thread_id=key,
+            error="DATABASE_URL unset or database unavailable",
+        )
 
     try:
         for row in db.list_run_events(key):
@@ -282,15 +279,24 @@ def assemble_timeline(thread_id: str) -> dict[str, Any]:
         chapters.setdefault(chapter, []).append(item)
 
     chapter_list = [
-        {"step": key if key != "run" else None, "label": f"Step {key}" if key != "run" else "Run", "events": chapters[key]}
-        for key in sorted(chapters.keys(), key=lambda k: (k == "run", k if isinstance(k, int) else 0))
+        {
+            "step": key if key != "run" else None,
+            "label": f"Step {key}" if key != "run" else "Run",
+            "events": chapters[key],
+        }
+        for key in sorted(
+            chapters.keys(),
+            key=lambda k: (k == "run", k if isinstance(k, int) else 0),
+        )
     ]
 
-    return {
-        "thread_id": key,
-        "events": events,
-        "actions": actions,
-        "artifacts": artifacts,
-        "logs": logs,
-        "chapters": chapter_list,
-    }
+    return Timeline.model_validate(
+        {
+            "thread_id": key,
+            "events": events,
+            "actions": actions,
+            "artifacts": artifacts,
+            "logs": logs,
+            "chapters": chapter_list,
+        }
+    )

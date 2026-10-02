@@ -6,8 +6,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, Integer, LargeBinary, Text, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Index, Integer, LargeBinary, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -131,4 +131,45 @@ class RunEvent(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class Run(Base):
+    """Persisted QA run: inputs, plan, findings, and assembled timeline snapshot."""
+
+    __tablename__ = "runs"
+    __table_args__ = (
+        Index("runs_created_at_idx", "created_at"),
+        Index("runs_url_idx", "url"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    thread_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    bug_description: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_behavior: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    plan: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    step_findings: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    timeline: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    report: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )

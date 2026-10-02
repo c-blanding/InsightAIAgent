@@ -38,15 +38,16 @@ def main() -> int:
 
     from evidence.timeline import assemble_timeline
 
-    data = assemble_timeline(args.thread_id)
+    timeline = assemble_timeline(args.thread_id)
+    data = timeline.model_dump(mode="json")
     if args.actions_only:
         data = {
-            "thread_id": data["thread_id"],
-            "actions": data.get("actions") or [],
-            "error": data.get("error"),
+            "thread_id": timeline.thread_id,
+            "actions": [item.model_dump(mode="json") for item in timeline.actions],
+            "error": timeline.error,
         }
     print(json.dumps(data, indent=2 if args.pretty else None, default=str))
-    return 0 if not data.get("error") else 1
+    return 0 if not timeline.error else 1
 
 
 if __name__ == "__main__":
