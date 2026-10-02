@@ -1,7 +1,9 @@
 import sys
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parent
+_SRC = Path(__file__).parent
+if not _SRC.is_absolute():
+    raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
