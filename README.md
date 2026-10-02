@@ -104,8 +104,8 @@ copy .env.example .env
 
 Set at least `OPENAI_API_KEY` in `.env`.
 
-Start Playwright MCP in a separate terminal (headed browser by default). Use the
-same media directory the agent uses (`INSIGHT_MEDIA_DIR`, default `.insight_media`).
+Start Playwright MCP in a separate terminal (headed browser by default). All
+snapshots, video, and traces stay under `.playwright-mcp` (or `INSIGHT_MEDIA_DIR`).
 Video also needs Playwright's ffmpeg binary once:
 
 ```powershell
@@ -116,14 +116,14 @@ npx playwright install ffmpeg
 Or manually:
 
 ```powershell
-npx @playwright/mcp@latest --port 8931 --caps=storage,devtools --isolated --output-dir .insight_media
+npx @playwright/mcp@latest --port 8931 --caps=storage,devtools --isolated --output-dir .playwright-mcp
 ```
 
 `--caps=devtools` is required for video. Without it, `browser_start_video` is missing
 and runs continue with no recording. For hosted / sidecar deploys set `PLAYWRIGHT_MCP_URL`
 to the MCP HTTP URL and point both processes at the same absolute `INSIGHT_MEDIA_DIR`
-(and Neon `DATABASE_URL` / `AWS_*` for durable evidence). Local scratch stays ephemeral;
-screenshots and video upload to Neon Object Storage when configured.
+(and Neon `DATABASE_URL` / `AWS_*` for durable evidence). Local files under
+`.playwright-mcp` are removed when the graph finishes and uploads succeed.
 
 Run the LangGraph dev server:
 
@@ -172,7 +172,7 @@ If `auth_profile_id` is set and a matching unexpired row exists, the shared Play
 
 Playwright storage state covers cookies and `localStorage` only. Sessions that live only in `sessionStorage` are not restored. LumenShop’s login redirects on success but does not set a cookie or `localStorage`, so a capture for that demo is rejected until the site under test actually stores a session. `interrupt` requires a checkpointer (provided by `langgraph dev` / Studio).
 
-## Run evidence (screenshots, video, console, network)
+## Run evidence (screenshots, video, console, network, snapshots)
 
 One Playwright MCP client is reused for the whole LangGraph thread. The harness (not the model) owns durable evidence:
 
@@ -182,12 +182,15 @@ One Playwright MCP client is reused for the whole LangGraph thread. The harness 
 | Video | Continuous for the run (`browser_start_video` → stop on finish) | Neon bucket `insight-videos` + `run_artifacts` |
 | Console | End of each step (errors + last lines, redacted, capped) | Postgres `run_logs` (`kind=console`) |
 | Network | After navigate / form fill / submit-like clicks (failures and HTTP ≥ 400) | Postgres `run_logs` (`kind=network`) |
+| Snapshot | After each `browser_snapshot` (a11y tree, redacted, capped) | Postgres `run_logs` (`kind=snapshot`) |
 
-Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (see `insight/agent/src/evidence/schema.sql`). Console and network are logged via [`utils.logging.Logging`](insight/agent/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
+Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (see `insight/agent/src/evidence/schema.sql`). Console, network, and accessibility snapshots are logged via [`utils.logging.Logging`](insight/agent/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
 
 Login walls skip screenshots when the page looks like a password form, and `auth_expired` steps drop screenshot artifacts. Evidence upload/logging is best-effort: missing AWS env or tables logs a warning and the QA run continues.
 
-Start MCP with `--output-dir .insight_media` (gitignored). Local files under that directory are deleted after a successful upload.
+Start MCP with `--output-dir .playwright-mcp` (gitignored). Screenshot pointers
+(`bucket` + `object_key`) stay on `step_findings` for the whole run. Local PNGs/
+video under that directory are removed when the graph finishes and uploads succeed.
 
 ## Demo storefront
 

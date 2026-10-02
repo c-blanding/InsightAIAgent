@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 from auth.redact import redact_text
@@ -135,7 +136,15 @@ async def capture_screenshot(client: PlaywrightMCP, *, tool_name: str) -> dict[s
         logger.warning("Screenshot failed after %s", tool_name)
         return None
     object_key = rel.replace("\\", "/")
-    artifact = await asyncio.to_thread(
+    # Keep the PNG on disk until graph release; always attach a pointer so
+    # step_findings can reference it for the rest of the run / report.
+    artifact = {
+        "kind": "screenshot",
+        "bucket": SCREENSHOT_BUCKET,
+        "object_key": object_key,
+    }
+    evidence_context.record_artifact(artifact)
+    uploaded = await asyncio.to_thread(
         upload_file,
         path,
         bucket=SCREENSHOT_BUCKET,
@@ -145,12 +154,11 @@ async def capture_screenshot(client: PlaywrightMCP, *, tool_name: str) -> dict[s
         thread_id=ctx.thread_id,
         step=ctx.step,
     )
-    if artifact:
-        try:
-            await asyncio.to_thread(path.unlink, missing_ok=True)
-        except OSError:
-            pass
-        evidence_context.record_artifact(artifact)
+    if uploaded is None:
+        logger.info(
+            "Screenshot kept locally for step_findings / end-of-run upload: %s",
+            path,
+        )
     return artifact
 
 
@@ -195,6 +203,55 @@ async def capture_network(client: PlaywrightMCP, *, force: bool = False) -> None
         await asyncio.to_thread(_run_logger(ctx).network, text[:8000])
     except Exception:
         logger.debug("run_logs network insert skipped", exc_info=True)
+
+
+async def persist_a11y_snapshot(
+    text: str,
+    *,
+    suggested_name: str | None = None,
+) -> Path | None:
+    """Persist an accessibility snapshot to ``run_logs`` (kind=snapshot).
+
+    Also stages a copy under ``.playwright-mcp/runs/{thread}/snapshots/`` until
+    graph release. Returns the local path when written, else ``None``.
+    """
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return None
+    capped = _cap(redact_text(cleaned), limit=_MAX_LOG_BYTES)
+    ctx = evidence_context.current()
+    thread_id = ctx.thread_id if ctx is not None else "local"
+    step = ctx.step if ctx is not None else None
+    seq = evidence_context.next_seq() if ctx is not None else 0
+
+    # Durable copy in Postgres (same channel as console/network).
+    try:
+        await asyncio.to_thread(
+            Logging(name="harness", thread_id=thread_id, step=step).snapshot,
+            capped,
+        )
+    except Exception:
+        logger.debug("run_logs snapshot insert skipped", exc_info=True)
+
+    raw_name = (suggested_name or "").strip().replace("\\", "/")
+    base = Path(raw_name).name if raw_name else ""
+    if not base or base in {".", ".."}:
+        step_part = step if step is not None else 0
+        base = f"step-{step_part}-{seq:03d}-snapshot.yml"
+    if not base.lower().endswith((".yml", ".yaml", ".txt", ".json")):
+        base = f"{base}.yml"
+    path = absolute_path(media_dir() / "runs" / thread_id / "snapshots" / base)
+    await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
+
+    def _write() -> None:
+        path.write_text(capped, encoding="utf-8")
+
+    try:
+        await asyncio.to_thread(_write)
+    except OSError:
+        logger.debug("local snapshot write skipped", exc_info=True)
+        return None
+    return path
 
 
 async def after_tool(

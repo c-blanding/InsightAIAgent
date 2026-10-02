@@ -19,7 +19,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from auth.store import materialize_storage_state
-from evidence.store import VIDEO_BUCKET, upload_file
+from evidence.store import SCREENSHOT_BUCKET, VIDEO_BUCKET, upload_file
 from mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
 from runtime_paths import absolute_path, media_dir, REPO_ROOT
 from utils.logging import Logging
@@ -106,6 +106,54 @@ def _sweep_stale_media() -> None:
 
 def _cleanup_run_dir(run_dir: Path) -> None:
     shutil.rmtree(run_dir, ignore_errors=True)
+
+
+def _upload_pending_screenshots(run_dir: Path, thread_id: str) -> tuple[list[dict[str, Any]], bool]:
+    """Upload PNGs still on disk; delete each after a successful upload.
+
+    Returns ``(uploaded_artifacts, still_pending)``. ``still_pending`` is True when
+    at least one local PNG could not be uploaded (keep the run dir for retry).
+    """
+    uploaded: list[dict[str, Any]] = []
+    still_pending = False
+    if not run_dir.is_dir():
+        return uploaded, still_pending
+    try:
+        pngs = sorted(p for p in run_dir.rglob("*.png") if p.is_file() and p.stat().st_size > 0)
+    except OSError:
+        return uploaded, still_pending
+    media_root = media_dir()
+    for path in pngs:
+        try:
+            rel = path.relative_to(media_root).as_posix()
+        except ValueError:
+            rel = f"runs/{thread_id}/{path.name}"
+        step: int | None = None
+        for part in path.parts:
+            if part.startswith("step-"):
+                try:
+                    step = int(part.split("-", 1)[1])
+                except ValueError:
+                    step = None
+                break
+        artifact = upload_file(
+            path,
+            bucket=SCREENSHOT_BUCKET,
+            object_key=rel,
+            content_type="image/png",
+            kind="screenshot",
+            thread_id=thread_id,
+            step=step,
+        )
+        if artifact:
+            uploaded.append(artifact)
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        else:
+            still_pending = True
+    return uploaded, still_pending
 
 
 def _find_video_file(preferred: Path, run_dir: Path) -> Path | None:
@@ -317,7 +365,19 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
     artifact: dict[str, Any] | None = None
     local_video = held.video_path
     run_dir = local_run_dir(key)
+    screenshots_pending = False
     try:
+        if finished:
+            # Refs already live on step_findings; flush any local PNGs now.
+            pending, screenshots_pending = await asyncio.to_thread(
+                _upload_pending_screenshots, run_dir, key
+            )
+            if pending:
+                await asyncio.to_thread(
+                    run_log.info,
+                    f"Uploaded {len(pending)} screenshot(s) at end of run",
+                )
+
         if finished and held.video_started:
             stop_result: Any = None
             try:
@@ -371,11 +431,11 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
         except Exception:
             logger.warning("Failed to stop Playwright MCP for thread %s", key, exc_info=True)
         if finished:
-            # Graph is done: drop local staging only after a successful video upload,
-            # or when there was no video to keep. Failed uploads keep the webm for retry.
+            # Graph done: clear local staging only after media uploads succeed
+            # (or there is nothing left to keep). Failed uploads keep files for retry.
             exists = await asyncio.to_thread(local_video.exists)
             video_ok = artifact is not None or not held.video_started or not exists
-            if video_ok:
+            if video_ok and not screenshots_pending:
                 await asyncio.to_thread(_cleanup_run_dir, run_dir)
 
     return artifact

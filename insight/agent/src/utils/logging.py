@@ -10,12 +10,12 @@ from auth.redact import redact_text
 from db.database import Database, DatabaseError, get_database
 from db.models import RunLog
 
-_LOG_KINDS = frozenset({"console", "network", "info"})
+_LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})
 _stdlib = logging.getLogger(__name__)
 
 
 class Logging:
-    """Persist redacted console / network / info logs for a run thread.
+    """Persist redacted console / network / snapshot / info logs for a run thread.
 
     Best-effort: missing ``DATABASE_URL`` or insert failures never raise to callers.
     """
@@ -90,8 +90,11 @@ class Logging:
     def info(self, message: str, *, step: int | None = None) -> RunLog | None:
         return self.log(message, kind="info", step=step)
 
+    def snapshot(self, message: str, *, step: int | None = None) -> RunLog | None:
+        return self.log(message, kind="snapshot", step=step)
+
     def warning(self, message: str, *, step: int | None = None) -> RunLog | None:
-        # run_logs only allows console|network|info — persist warnings as info.
+        # Persist warnings as info (CHECK allows console|network|info|snapshot).
         return self.log(f"[warning] {message}", kind="info", step=step)
 
     def extend(

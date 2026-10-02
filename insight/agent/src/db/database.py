@@ -18,7 +18,7 @@ from sqlalchemy.pool import NullPool
 from db.models import AuthSession, Base, RunArtifact, RunLog
 
 _ARTIFACT_KINDS = frozenset({"screenshot", "video"})
-_LOG_KINDS = frozenset({"console", "network", "info"})
+_LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})
 
 
 class DatabaseError(Exception):
@@ -130,7 +130,26 @@ class Database:
             if self._schema_ready:
                 return
             Base.metadata.create_all(self.engine)
+            self._ensure_run_logs_snapshot_kind()
             self._schema_ready = True
+
+    def _ensure_run_logs_snapshot_kind(self) -> None:
+        """Widen run_logs.kind CHECK so existing DBs accept ``snapshot`` rows."""
+        from sqlalchemy import text as sa_text
+
+        stmts = (
+            "ALTER TABLE run_logs DROP CONSTRAINT IF EXISTS run_logs_kind_check",
+            "ALTER TABLE run_logs ADD CONSTRAINT run_logs_kind_check "
+            "CHECK (kind IN ('console', 'network', 'info', 'snapshot'))",
+        )
+        try:
+            with self.engine.begin() as conn:
+                for stmt in stmts:
+                    conn.execute(sa_text(stmt))
+        except Exception:
+            # Table may not exist yet on a fresh DB, or role lacks ALTER — inserts
+            # still work when create_all built the table from the updated model.
+            pass
 
     def dispose(self) -> None:
         self.engine.dispose()

@@ -6,6 +6,9 @@ __pycache__/
 .insight_media/
 .playwright-mcp/
 runs/
+*_snapshot*
+*snapshot*.yml
+*snapshot*.yaml
 auth-state.json
 storage-state-*.json
 .neon

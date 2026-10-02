@@ -32,11 +32,12 @@ Plan:
 
 Rules:
 1. Call browser_navigate with the URL first. That opens the browser — there is no separate open-browser tool.
-2. After navigate and after every meaningful interaction, call browser_snapshot and use element refs from the snapshot for clicks/types.
+2. After navigate and after every meaningful interaction, call browser_snapshot (do not pass filename —
+   the harness stores snapshots under the run folder). Use element refs from the snapshot for clicks/types.
 3. Follow the plan steps in order. If a step fails, try a reasonable alternative once, then report what blocked you.
 4. Use browser_console_messages / browser_network_requests when they help confirm the bug.
 5. When done, stop calling tools and reply with:
-   - what you observed
+   - what you observed (include a short page_snapshot excerpt of the final relevant UI when useful)
    - whether the bug was reproduced
    - which step(s) mattered
 Do not suggest code fixes. Stay in the browser.

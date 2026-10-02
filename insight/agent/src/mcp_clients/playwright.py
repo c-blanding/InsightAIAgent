@@ -1,4 +1,6 @@
 import copy
+import asyncio
+from pathlib import Path
 from typing import Any
 
 from langchain.mcp import MCPAdapter
@@ -132,6 +134,98 @@ _EVIDENCE_WRAP = frozenset(
     }
 )
 
+# Model-facing tools that accept ``filename``. Relative names resolve against the
+# MCP workspace root (repo), which dumps files into the project root — rewrite or
+# strip so artifacts stay under ``.playwright-mcp/runs/...``.
+_FILENAME_TOOLS = frozenset(
+    {
+        "browser_snapshot",
+        "browser_console_messages",
+        "browser_network_requests",
+        "browser_network_request",
+    }
+)
+
+
+def _wrap_snapshot_tool(tool: BaseTool) -> BaseTool:
+    """Return a11y tree to the model; persist a copy under runs/{thread}/snapshots/.
+
+    Passing ``filename`` to Playwright MCP saves instead of returning content, and
+    relative paths land in the repo root. Strip filename, keep refs for the agent,
+    and write the text ourselves under the run directory.
+    """
+    if tool.name != "browser_snapshot":
+        return tool
+    original_async = tool.coroutine
+    if original_async is None:
+        return tool
+
+    async def _run(*args, _orig=original_async, **kwargs):
+        suggested = None
+        if "filename" in kwargs:
+            suggested = kwargs.pop("filename", None)
+        elif args and isinstance(args[0], dict) and "filename" in args[0]:
+            payload = dict(args[0])
+            suggested = payload.pop("filename", None)
+            args = (payload,) + args[1:]
+        result = await _orig(*args, **kwargs)
+        try:
+            from evidence.capture import persist_a11y_snapshot, tool_result_text
+
+            text = tool_result_text(result)
+            await persist_a11y_snapshot(text, suggested_name=str(suggested) if suggested else None)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).debug(
+                "Snapshot persist skipped", exc_info=True
+            )
+        return result
+
+    # Drop filename from the schema so the model stops aiming at the repo root.
+    updates: dict[str, Any] = {"coroutine": _run}
+    schema = getattr(tool, "args_schema", None)
+    if isinstance(schema, dict) and isinstance(schema.get("properties"), dict):
+        cleaned = copy.deepcopy(schema)
+        cleaned["properties"].pop("filename", None)
+        if isinstance(cleaned.get("required"), list):
+            cleaned["required"] = [r for r in cleaned["required"] if r != "filename"]
+        updates["args_schema"] = cleaned
+    return tool.model_copy(update=updates)
+
+
+def _wrap_filename_tool(tool: BaseTool) -> BaseTool:
+    """Force console/network dump filenames under the current run directory."""
+    if tool.name not in _FILENAME_TOOLS or tool.name == "browser_snapshot":
+        return tool
+    original_async = tool.coroutine
+    if original_async is None:
+        return tool
+
+    async def _run(*args, _orig=original_async, _name=tool.name, **kwargs):
+        from evidence import context as evidence_context
+        from runtime_paths import absolute_path
+
+        filename = kwargs.get("filename")
+        payload = None
+        if filename is None and args and isinstance(args[0], dict):
+            payload = dict(args[0])
+            filename = payload.get("filename")
+        if filename:
+            ctx = evidence_context.current()
+            thread_id = ctx.thread_id if ctx is not None else "local"
+            base = Path(str(filename).replace("\\", "/")).name or f"{_name}.txt"
+            dest = absolute_path(media_dir() / "runs" / thread_id / "logs" / base)
+            await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
+            if payload is not None:
+                payload["filename"] = str(dest)
+                args = (payload,) + args[1:]
+            else:
+                kwargs["filename"] = str(dest)
+        return await _orig(*args, **kwargs)
+
+    return tool.model_copy(update={"coroutine": _run})
+
 
 def _wrap_evidence_tool(tool: BaseTool, client: "PlaywrightMCP") -> BaseTool:
     """After important UI actions, harness screenshots (and sometimes network)."""
@@ -169,6 +263,8 @@ def _openai_compatible_tools(
         if isinstance(schema, dict):
             tool.args_schema = _sanitize_schema(copy.deepcopy(schema))
         tool = _redact_network_tool(tool)
+        tool = _wrap_snapshot_tool(tool)
+        tool = _wrap_filename_tool(tool)
         if client is not None:
             tool = _wrap_evidence_tool(tool, client)
         compatible.append(tool)

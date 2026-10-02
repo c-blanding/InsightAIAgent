@@ -1,5 +1,5 @@
 -- Run artifacts metadata (screenshots and video only).
--- Bytes live in Neon buckets. Console/network go to run_logs, not here.
+-- Bytes live in Neon buckets. Console/network/snapshot go to run_logs, not here.
 --
 --   GRANT SELECT, INSERT ON run_artifacts TO insight_app;
 

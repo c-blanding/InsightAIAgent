@@ -73,12 +73,12 @@ class RunArtifact(Base):
 
 
 class RunLog(Base):
-    """Console, network, and info logs for a QA run (stored as text, not blobs)."""
+    """Console, network, snapshot, and info logs for a QA run (text, not blobs)."""
 
     __tablename__ = "run_logs"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('console', 'network', 'info')",
+            "kind IN ('console', 'network', 'info', 'snapshot')",
             name="run_logs_kind_check",
         ),
         Index("run_logs_thread_step_idx", "thread_id", "step"),
