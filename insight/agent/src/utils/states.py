@@ -27,7 +27,8 @@ class CreateGraphState(TypedDict):
     bug_description: str
     url: str
     expected_behavior: Optional[str]
-    max_tools_turns: NotRequired[int]
+    max_tools_turns: int = 30
+    auth_profile_id: NotRequired[Optional[str]] = None
 
 
 class ExecutionState(TypedDict):

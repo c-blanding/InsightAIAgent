@@ -72,6 +72,9 @@ URL: {url}
 Bug description: {bug}
 Expected behavior: {expected_behavior}
 Step findings: {step_findings}
+Timeline: {timeline}
+Plan completed: {plan_completed}
+
 
 Your job is to make a insightful and detailed report based of the information provided.
 When step findings include artifacts (bucket + object_key for screenshots or video),
