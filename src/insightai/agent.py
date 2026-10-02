@@ -19,12 +19,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-# agent.py lives in insightaiagent/; put sibling packages (utils, …) on path
-_SRC_ROOT = Path(__file__).parent.parent
-if not _SRC_ROOT.is_absolute():
+# agent.py lives in src/insightai/; inner ``src/`` holds utils, db, evidence, …
+_PKG_ROOT = Path(__file__).parent
+if not _PKG_ROOT.is_absolute():
     raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
-if str(_SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_SRC_ROOT))
+if str(_PKG_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PKG_ROOT))
 
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig

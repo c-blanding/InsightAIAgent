@@ -1,31 +1,10 @@
-"""Insight AI Agent public API."""
+"""Legacy package namespace — prefer importing from ``insight.insightai.agent`` /
 
-from .agent import (
-    InsightAgent,
-    InsightAgentError,
-    InsightInputError,
-    InsightOutcome,
-    InsightPreflightError,
-    InsightResult,
-    NeedsLogin,
-    build_graph,
-)
-
-__all__ = [
-    "InsightAgent",
-    "InsightAgentError",
-    "InsightInputError",
-    "InsightOutcome",
-    "InsightPreflightError",
-    "InsightResult",
-    "NeedsLogin",
-    "build_graph",
-    "main",
-]
-
+``insight/insightai/agent.py`` (``InsightAgent``).
+"""
 
 def main() -> None:
     print(
-        "Insight AI Agent — use InsightAgent().run({...}) or "
-        "`langgraph dev` for Studio."
+        "Insight AI Agent — use InsightAgent from insight/insightai/agent.py "
+        "or `langgraph dev` for Studio."
     )
