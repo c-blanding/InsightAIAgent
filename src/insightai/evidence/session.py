@@ -18,11 +18,11 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
-from auth.store import materialize_storage_state
-from evidence.store import SCREENSHOT_BUCKET, VIDEO_BUCKET, upload_file
-from mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
-from runtime_paths import absolute_path, media_dir, REPO_ROOT
-from utils.logging import Logging
+from insightai.auth.store import materialize_storage_state
+from insightai.evidence.store import SCREENSHOT_BUCKET, VIDEO_BUCKET, upload_file
+from insightai.mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
+from insightai.runtime_paths import absolute_path, media_dir, REPO_ROOT
+from insightai.utils.logging import Logging
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +267,7 @@ async def session_for(thread_id: str | None) -> PlaywrightMCP:
         _sessions[key] = held
 
         try:
-            from evidence.timeline import EVENT_SESSION_START, emit_event
+            from insightai.evidence.timeline import EVENT_SESSION_START, emit_event
 
             emit_event(key, EVENT_SESSION_START, "Playwright session opened")
         except Exception:
@@ -289,7 +289,7 @@ async def session_for(thread_id: str | None) -> PlaywrightMCP:
             )
             held.video_started = True
             try:
-                from evidence.timeline import EVENT_VIDEO_START, emit_event
+                from insightai.evidence.timeline import EVENT_VIDEO_START, emit_event
 
                 emit_event(
                     key,
@@ -351,7 +351,7 @@ async def apply_auth_if_needed(thread_id: str | None, profile_id: str, url: str)
             if current is held and not current.releasing:
                 current.auth_profile_applied = profile
         try:
-            from evidence.timeline import EVENT_AUTH_RESTORE, emit_event
+            from insightai.evidence.timeline import EVENT_AUTH_RESTORE, emit_event
 
             emit_event(
                 key,
@@ -409,7 +409,7 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
                     f"Uploaded {len(pending)} screenshot(s) at end of run",
                 )
                 try:
-                    from evidence.timeline import EVENT_UPLOAD, emit_event
+                    from insightai.evidence.timeline import EVENT_UPLOAD, emit_event
 
                     emit_event(
                         key,
@@ -425,7 +425,7 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
             try:
                 stop_result = await held.client.call_mcp("browser_stop_video", {})
                 try:
-                    from evidence.timeline import EVENT_VIDEO_STOP, emit_event
+                    from insightai.evidence.timeline import EVENT_VIDEO_STOP, emit_event
 
                     emit_event(
                         key,
@@ -467,7 +467,7 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
                         f"Uploaded video to Neon bucket {artifact['bucket']}/{artifact['object_key']}",
                     )
                     try:
-                        from evidence.timeline import EVENT_UPLOAD, emit_event
+                        from insightai.evidence.timeline import EVENT_UPLOAD, emit_event
 
                         emit_event(
                             key,
@@ -502,7 +502,7 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
             if video_ok and not screenshots_pending:
                 await asyncio.to_thread(_cleanup_run_dir, run_dir)
         try:
-            from evidence.timeline import EVENT_SESSION_END, emit_event
+            from insightai.evidence.timeline import EVENT_SESSION_END, emit_event
 
             emit_event(key, EVENT_SESSION_END, "Playwright session closed")
         except Exception:

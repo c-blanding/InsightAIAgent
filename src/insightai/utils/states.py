@@ -3,7 +3,7 @@ from typing import Annotated, NotRequired, Optional
 
 from typing_extensions import TypedDict
 
-from utils.objects import Plan, Report, StepFindings, Timeline
+from insightai.utils.objects import Plan, Report, StepFindings, Timeline
 
 
 class InsightGraphState(TypedDict):

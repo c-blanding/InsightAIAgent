@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from auth.redact import redact_text
+from insightai.auth.redact import redact_text
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _db():
     if not (os.environ.get("DATABASE_URL") or "").strip():
         return None
     try:
-        from db import get_database
+        from insightai.db import get_database
 
         db = get_database()
         db.create_tables()
@@ -118,7 +118,7 @@ def emit_from_context(
 ) -> dict[str, Any] | None:
     """Emit using the current evidence step context when available."""
     try:
-        from evidence import context as evidence_context
+        from insightai.evidence import context as evidence_context
 
         ctx = evidence_context.current()
     except Exception:
@@ -151,7 +151,7 @@ def assemble_timeline(thread_id: str) -> Timeline:
     Primary spine: ``run_events``. Also folds in ``run_artifacts`` and
     ``run_logs`` that may not have a matching event yet (legacy / best-effort).
     """
-    from utils.objects import Timeline
+    from insightai.utils.objects import Timeline
 
     key = (thread_id or "").strip() or "local"
     db = _db()

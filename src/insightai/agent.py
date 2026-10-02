@@ -10,21 +10,12 @@ import asyncio
 import logging
 import os
 import re
-import sys
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, AsyncIterator, Literal, Optional, Union
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
-
-# agent.py lives in src/insightai/; put src/insightai/src on path for utils/db/…
-_SRC_ROOT = Path(__file__).parent / "src"
-if not _SRC_ROOT.is_absolute():
-    raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
-if str(_SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_SRC_ROOT))
 
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
@@ -33,12 +24,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
-from evidence.session import normalize_thread_id, release
-from runtime_paths import playwright_mcp_url
-from utils.edges import insight_after_execute
-from utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
-from utils.objects import Plan, Report, StepFindings, Timeline
-from utils.states import InsightGraphState
+from insightai.evidence.session import normalize_thread_id, release
+from insightai.runtime_paths import playwright_mcp_url
+from insightai.utils.edges import insight_after_execute
+from insightai.utils.nodes import create_plan, execute_plan, finalize_report, wait_for_login
+from insightai.utils.objects import Plan, Report, StepFindings, Timeline
+from insightai.utils.states import InsightGraphState
 
 load_dotenv()
 
@@ -124,12 +115,12 @@ class InsightPreflightError(InsightAgentError, RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Graph factory (Studio entry: insightaiagent_graph.py; class adds a checkpointer)
+# Graph factory (Studio keeps ``graph``; the class compiles with a checkpointer)
 # ---------------------------------------------------------------------------
 
 
 def build_graph(*, checkpointer: BaseCheckpointSaver | None = None):
-    """Compile the plan → execute → report graph."""
+    """Compile the plan ΓåÆ execute ΓåÆ report graph."""
     builder = StateGraph(InsightGraphState)
     builder.add_node("create_plan", create_plan)
     builder.add_node("execute_plan", execute_plan)
@@ -145,6 +136,8 @@ def build_graph(*, checkpointer: BaseCheckpointSaver | None = None):
     builder.add_edge("wait_for_login", "execute_plan")
     builder.add_edge("finalize_report", END)
     return builder.compile(checkpointer=checkpointer)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +199,7 @@ class InsightAgent:
         try:
             # Playwright MCP speaks Streamable HTTP; any HTTP response
             # (including 4xx) means the process is listening.
-            with urlopen(url, timeout=3) as resp:  # noqa: S310 — configured MCP URL
+            with urlopen(url, timeout=3) as resp:  # noqa: S310 ΓÇö configured MCP URL
                 _ = resp.status
         except HTTPError:
             return
@@ -396,13 +389,13 @@ class InsightAgent:
 
     def get_timeline(self, thread_id: str) -> Timeline:
         """Assemble the persisted timeline for a finished (or in-progress) thread."""
-        from evidence.timeline import assemble_timeline
+        from insightai.evidence.timeline import assemble_timeline
 
         return assemble_timeline(normalize_thread_id(thread_id))
 
     def get_run(self, thread_id: str) -> Any:
         """Load the persisted ``runs`` row for ``thread_id``, or ``None``."""
-        from db import get_database
+        from insightai.db import get_database
 
         return get_database().get_run(normalize_thread_id(thread_id))
 

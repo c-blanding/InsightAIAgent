@@ -6,9 +6,9 @@ import logging
 import os
 from typing import Iterable
 
-from auth.redact import redact_text
-from db.database import Database, DatabaseError, get_database
-from db.models import RunLog
+from insightai.auth.redact import redact_text
+from insightai.db.database import Database, DatabaseError, get_database
+from insightai.db.models import RunLog
 
 _LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})
 _stdlib = logging.getLogger(__name__)

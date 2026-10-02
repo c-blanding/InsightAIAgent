@@ -13,11 +13,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# insight/agent/src/runtime_paths.py -> repo root is parents[3]
+# src/insightai/runtime_paths.py -> repo root is parents[2]
 _SRC_FILE = Path(__file__)
 if not _SRC_FILE.is_absolute():
     raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
-REPO_ROOT = _SRC_FILE.parents[3]
+REPO_ROOT = _SRC_FILE.parents[2]
 
 # Playwright MCP's conventional output folder; keep agent + MCP aligned.
 _DEFAULT_MEDIA = REPO_ROOT / ".playwright-mcp"

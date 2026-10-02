@@ -11,15 +11,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from auth.storage_state import (
+from insightai.auth.storage_state import (
     StorageStateError,
     has_session_data,
     normalize_origin,
     scope_storage_state,
 )
-from auth.store import AuthStoreError, prepare_scratch_dir, save_session
-from mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
-from runtime_paths import absolute_path
+from insightai.auth.store import AuthStoreError, prepare_scratch_dir, save_session
+from insightai.mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
+from insightai.runtime_paths import absolute_path
 
 
 def default_profile_id(page_url: str) -> str:

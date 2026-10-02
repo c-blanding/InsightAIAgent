@@ -8,12 +8,12 @@ import re
 from pathlib import Path
 from typing import Any
 
-from auth.redact import redact_text
-from evidence import context as evidence_context
-from evidence.store import SCREENSHOT_BUCKET, upload_file
-from mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
-from runtime_paths import absolute_path, media_dir
-from utils.logging import Logging
+from insightai.auth.redact import redact_text
+from insightai.evidence import context as evidence_context
+from insightai.evidence.store import SCREENSHOT_BUCKET, upload_file
+from insightai.mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
+from insightai.runtime_paths import absolute_path, media_dir
+from insightai.utils.logging import Logging
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ async def capture_screenshot(client: PlaywrightMCP, *, tool_name: str) -> dict[s
         step=ctx.step,
     )
     try:
-        from evidence.timeline import EVENT_SCREENSHOT, emit_from_context
+        from insightai.evidence.timeline import EVENT_SCREENSHOT, emit_from_context
 
         emit_from_context(
             EVENT_SCREENSHOT,
@@ -193,7 +193,7 @@ async def capture_console(client: PlaywrightMCP) -> str:
         return ""
     try:
         await asyncio.to_thread(_run_logger(ctx).console, text[:8000])
-        from evidence.timeline import EVENT_CONSOLE, emit_from_context
+        from insightai.evidence.timeline import EVENT_CONSOLE, emit_from_context
 
         emit_from_context(
             EVENT_CONSOLE,
@@ -224,7 +224,7 @@ async def capture_network(client: PlaywrightMCP, *, force: bool = False) -> None
         return
     try:
         await asyncio.to_thread(_run_logger(ctx).network, text[:8000])
-        from evidence.timeline import EVENT_NETWORK, emit_from_context
+        from insightai.evidence.timeline import EVENT_NETWORK, emit_from_context
 
         emit_from_context(
             EVENT_NETWORK,
@@ -265,7 +265,7 @@ async def persist_a11y_snapshot(
         logger.debug("run_logs snapshot insert skipped", exc_info=True)
 
     try:
-        from evidence.timeline import EVENT_SNAPSHOT, emit_event
+        from insightai.evidence.timeline import EVENT_SNAPSHOT, emit_event
 
         emit_event(
             thread_id,
@@ -307,7 +307,7 @@ async def after_tool(
     """Post-success harness hooks for important browser tools."""
     # Always record the tool action on the timeline (even when screenshots skip).
     try:
-        from evidence.timeline import EVENT_ERROR, EVENT_TOOL, emit_from_context
+        from insightai.evidence.timeline import EVENT_ERROR, EVENT_TOOL, emit_from_context
 
         failed = _tool_failed(result)
         emit_from_context(

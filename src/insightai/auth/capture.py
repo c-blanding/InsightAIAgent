@@ -3,10 +3,10 @@
 The password is typed in the Playwright window. This process never reads it.
 Changing AUTH_DATA_KEY does not re-encrypt old rows. Revoke them and save again.
 
-    .\\.venv\\Scripts\\python.exe insight\\agent\\src\\auth\\capture.py generate-key
-    .\\.venv\\Scripts\\python.exe insight\\agent\\src\\auth\\capture.py save --profile lumenshop --origin http://localhost:5500 --login-url http://localhost:5500/login.html
-    .\\.venv\\Scripts\\python.exe insight\\agent\\src\\auth\\capture.py list
-    .\\.venv\\Scripts\\python.exe insight\\agent\\src\\auth\\capture.py revoke --profile lumenshop
+    .\\.venv\\Scripts\\python.exe -m insightai.auth.capture generate-key
+    .\\.venv\\Scripts\\python.exe -m insightai.auth.capture save --profile lumenshop --origin http://localhost:5500 --login-url http://localhost:5500/login.html
+    .\\.venv\\Scripts\\python.exe -m insightai.auth.capture list
+    .\\.venv\\Scripts\\python.exe -m insightai.auth.capture revoke --profile lumenshop
 """
 
 from __future__ import annotations
@@ -20,23 +20,17 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
-_SRC = Path(__file__).parent.parent
-if not _SRC.is_absolute():
-    raise RuntimeError(f"expected absolute __file__, got {__file__!r}")
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
-
-from auth.crypto import generate_data_key
-from auth.storage_state import StorageStateError, has_session_data, normalize_origin, scope_storage_state
-from auth.store import (
+from insightai.auth.crypto import generate_data_key
+from insightai.auth.storage_state import StorageStateError, has_session_data, normalize_origin, scope_storage_state
+from insightai.auth.store import (
     AuthStoreError,
     list_sessions,
     prepare_scratch_dir,
     revoke_session,
     save_session,
 )
-from mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
-from runtime_paths import absolute_path
+from insightai.mcp_clients.playwright import PlaywrightMCP, PlaywrightToolError
+from insightai.runtime_paths import absolute_path
 
 
 def _unlink_quiet(path: Path) -> None:

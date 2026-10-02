@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from db.models import AuthSession, Base, Run, RunArtifact, RunEvent, RunLog
+from insightai.db.models import AuthSession, Base, Run, RunArtifact, RunEvent, RunLog
 
 _ARTIFACT_KINDS = frozenset({"screenshot", "video"})
 _LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})

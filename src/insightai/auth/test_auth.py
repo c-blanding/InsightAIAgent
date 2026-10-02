@@ -2,11 +2,11 @@ import base64
 import json
 import unittest
 
-from auth.crypto import decrypt_blob, encrypt_blob, generate_data_key, load_data_key
-from auth.redact import redact_text
-from auth.storage_state import has_session_data, normalize_origin, scope_storage_state
-from auth.session_capture import default_profile_id, resume_confirmed
-from auth.store import validate_database_url, validate_profile_id, AuthStoreError
+from insightai.auth.crypto import decrypt_blob, encrypt_blob, generate_data_key, load_data_key
+from insightai.auth.redact import redact_text
+from insightai.auth.storage_state import has_session_data, normalize_origin, scope_storage_state
+from insightai.auth.session_capture import default_profile_id, resume_confirmed
+from insightai.auth.store import validate_database_url, validate_profile_id, AuthStoreError
 
 
 class CryptoTests(unittest.TestCase):

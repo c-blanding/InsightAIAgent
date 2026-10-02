@@ -7,10 +7,10 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
-from auth.redact import redact_secrets
-from evidence.session import thread_id_from_config
-from evidence.timeline import assemble_timeline
-from utils.objects import Plan, Report, Run, StepFindings, Timeline
+from insightai.auth.redact import redact_secrets
+from insightai.evidence.session import thread_id_from_config
+from insightai.evidence.timeline import assemble_timeline
+from insightai.utils.objects import Plan, Report, Run, StepFindings, Timeline
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def save_run(
     """Upsert a run row. Best-effort: returns ``None`` when the DB is unavailable."""
     key = (thread_id or "").strip() or "local"
     try:
-        from db import get_database
+        from insightai.db import get_database
 
         db = get_database()
         db.create_tables()

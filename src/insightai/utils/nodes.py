@@ -5,29 +5,29 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 
-from auth.redact import redact_secrets, redact_text
-from auth.session_capture import (
+from insightai.auth.redact import redact_secrets, redact_text
+from insightai.auth.session_capture import (
     default_profile_id,
     persist_open_browser_session,
     resume_confirmed,
 )
-from auth.storage_state import StorageStateError, normalize_origin
-from auth.store import AuthStoreError
-from evidence.session import (
+from insightai.auth.storage_state import StorageStateError, normalize_origin
+from insightai.auth.store import AuthStoreError
+from insightai.evidence.session import (
     apply_auth_if_needed,
     mark_auth_applied,
     release,
     session_for,
     thread_id_from_config,
 )
-from evidence import context as evidence_context
-from evidence.capture import capture_console
-from mcp_clients.playwright import PlaywrightToolError
-from utils.edges import AUTH_EXPIRED
-from utils.model import llm
-from utils.objects import ArtifactRef, Plan, Report, StepFindings
-from utils.prompts import auth_note, execute_plan_prompt, plan_intruction_prompt, report_prompt
-from utils.states import CreateGraphState, ExecutionState, InsightGraphState, ReportState
+from insightai.evidence import context as evidence_context
+from insightai.evidence.capture import capture_console
+from insightai.mcp_clients.playwright import PlaywrightToolError
+from insightai.utils.edges import AUTH_EXPIRED
+from insightai.utils.model import llm
+from insightai.utils.objects import ArtifactRef, Plan, Report, StepFindings
+from insightai.utils.prompts import auth_note, execute_plan_prompt, plan_intruction_prompt, report_prompt
+from insightai.utils.states import CreateGraphState, ExecutionState, InsightGraphState, ReportState
 
 
 
@@ -152,7 +152,7 @@ async def execute_plan(
 
     evidence_context.begin_step(thread_id, current_step)
     try:
-        from evidence.timeline import EVENT_STEP_START, emit_event
+        from insightai.evidence.timeline import EVENT_STEP_START, emit_event
 
         emit_event(
             thread_id,
@@ -240,7 +240,7 @@ async def execute_plan(
     findings = _merge_artifacts(findings, harness_artifacts)
     findings = _redact_findings(findings)
     try:
-        from evidence.timeline import EVENT_STEP_END, emit_event
+        from insightai.evidence.timeline import EVENT_STEP_END, emit_event
 
         emit_event(
             thread_id,
@@ -254,7 +254,7 @@ async def execute_plan(
         pass
     if (findings.error or "").strip() == AUTH_EXPIRED:
         try:
-            from evidence.timeline import EVENT_AUTH_LOGIN, emit_event
+            from insightai.evidence.timeline import EVENT_AUTH_LOGIN, emit_event
 
             emit_event(
                 thread_id,
@@ -342,7 +342,7 @@ async def wait_for_login(
         )
         mark_auth_applied(thread_id, profile_id)
         try:
-            from evidence.timeline import EVENT_AUTH_SAVED, emit_event
+            from insightai.evidence.timeline import EVENT_AUTH_SAVED, emit_event
 
             emit_event(
                 thread_id,
@@ -390,7 +390,7 @@ def finalize_report(
     )
 
     try:
-        from evidence.runs import save_run_from_state
+        from insightai.evidence.runs import save_run_from_state
 
         save_run_from_state(
             dict(state),

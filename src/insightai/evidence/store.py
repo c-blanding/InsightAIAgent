@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from utils.logging import Logging
+from insightai.utils.logging import Logging
 
 
 VIDEO_BUCKET = "insight-videos"
@@ -58,7 +58,7 @@ def _insert_artifact_row(
         run_log.warning(f"DATABASE_URL unset; skipping run_artifacts row for {object_key}")
         return
     try:
-        from db import get_database
+        from insightai.db import get_database
 
         get_database().insert_run_artifact(
             thread_id=thread_id,

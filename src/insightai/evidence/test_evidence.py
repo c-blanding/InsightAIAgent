@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from evidence.capture import _cap, _filter_console, _filter_network, looks_like_login_page
-from evidence.context import begin_step, clear_step, next_seq, record_artifact, take_artifacts
-from evidence.session import normalize_thread_id
+from insightai.evidence.capture import _cap, _filter_console, _filter_network, looks_like_login_page
+from insightai.evidence.context import begin_step, clear_step, next_seq, record_artifact, take_artifacts
+from insightai.evidence.session import normalize_thread_id
 
 
 class LoginDetectTests(unittest.TestCase):

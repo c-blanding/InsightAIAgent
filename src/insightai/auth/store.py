@@ -14,21 +14,21 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from auth.crypto import (
+from insightai.auth.crypto import (
     KEY_VERSION,
     AuthCryptoError,
     decrypt_blob,
     encrypt_blob,
     load_data_key,
 )
-from auth.storage_state import (
+from insightai.auth.storage_state import (
     StorageStateError,
     has_session_data,
     normalize_origin,
     scope_storage_state,
 )
-from db.database import Database, DatabaseError, get_auth_database
-from runtime_paths import auth_scratch_dir
+from insightai.db.database import Database, DatabaseError, get_auth_database
+from insightai.runtime_paths import auth_scratch_dir
 
 _PROFILE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}

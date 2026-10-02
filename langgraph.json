@@ -1,9 +1,9 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "create_plan": "./src/insightai/src/create_plan.py:graph",
-    "execute_plan": "./src/insightai/src/execute_plan.py:graph",
-    "insightaiagent": "./src/insightai/src/insightaiagent_graph.py:graph"
+    "create_plan": "./src/insightai/create_plan.py:graph",
+    "execute_plan": "./src/insightai/execute_plan.py:graph",
+    "insightaiagent": "./src/insightai/insightaiagent_graph.py:graph"
   },
   "env": ".env"
 }

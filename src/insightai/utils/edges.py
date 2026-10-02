@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from langgraph.graph import END
 
-from utils.states import ExecutionState, InsightGraphState
+from insightai.utils.states import ExecutionState, InsightGraphState
 
 AUTH_EXPIRED = "auth_expired"
 

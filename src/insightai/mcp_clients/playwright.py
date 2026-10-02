@@ -6,8 +6,8 @@ from typing import Any
 from langchain.mcp import MCPAdapter
 from langchain_core.tools import BaseTool
 
-from auth.redact import redact_secrets
-from runtime_paths import media_dir, playwright_mcp_url
+from insightai.auth.redact import redact_secrets
+from insightai.runtime_paths import media_dir, playwright_mcp_url
 
 
 def _default_mcp_url() -> str:
@@ -158,7 +158,7 @@ def _wrap_snapshot_tool(tool: BaseTool) -> BaseTool:
             args = (payload,) + args[1:]
         result = await _orig(*args, **kwargs)
         try:
-            from evidence.capture import persist_a11y_snapshot, tool_result_text
+            from insightai.evidence.capture import persist_a11y_snapshot, tool_result_text
 
             text = tool_result_text(result)
             await persist_a11y_snapshot(text, suggested_name=str(suggested) if suggested else None)
@@ -191,8 +191,8 @@ def _wrap_filename_tool(tool: BaseTool) -> BaseTool:
         return tool
 
     async def _run(*args, _orig=original_async, _name=tool.name, **kwargs):
-        from evidence import context as evidence_context
-        from runtime_paths import absolute_path
+        from insightai.evidence import context as evidence_context
+        from insightai.runtime_paths import absolute_path
 
         filename = kwargs.get("filename")
         payload = None
@@ -224,7 +224,7 @@ def _wrap_evidence_tool(tool: BaseTool, client: "PlaywrightMCP") -> BaseTool:
     async def _run(*args, _orig=original_async, _name=tool.name, _client=client, **kwargs):
         result = await _orig(*args, **kwargs)
         try:
-            from evidence.capture import after_tool
+            from insightai.evidence.capture import after_tool
 
             await after_tool(_client, _name, result)
         except Exception:

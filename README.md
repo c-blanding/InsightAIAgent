@@ -5,7 +5,7 @@ Insight AI Agent is a LangGraph application that takes a URL and a bug descripti
 Evidence (screenshots, video, console/network/snapshot logs, timeline events) and a full run summary (plan, findings, timeline, report) are persisted to Neon Postgres and Object Storage via SQLAlchemy.
 
 **Programmatic entry point:** [`InsightAgent`](src/insightai/agent.py) (`arun` / `acontinue`).  
-**Studio entry point:** graph id `insightaiagent` via [`insightaiagent_graph.py`](src/insightai/src/insightaiagent_graph.py).  
+**Studio entry point:** graph id `insightaiagent` via [`insightaiagent_graph.py`](src/insightai/insightaiagent_graph.py).  
 **FastAPI integration notes:** [`docs/FASTAPI_HANDOFF.md`](docs/FASTAPI_HANDOFF.md).
 
 ## Pipeline
@@ -47,21 +47,16 @@ Registered in `langgraph.json`:
 
 | Graph ID | Module | Use |
 |----------|--------|-----|
-| `insightaiagent` | `src/insightai/src/insightaiagent_graph.py` | End-to-end plan → execute → report |
-| `create_plan` | `src/insightai/src/create_plan.py` | Plan generation only |
-| `execute_plan` | `src/insightai/src/execute_plan.py` | Execution with conditional loop until complete |
+| `insightaiagent` | `src/insightai/insightaiagent_graph.py` | End-to-end plan → execute → report |
+| `create_plan` | `src/insightai/create_plan.py` | Plan generation only |
+| `execute_plan` | `src/insightai/execute_plan.py` | Execution with conditional loop until complete |
 
 ## Programmatic API (`InsightAgent`)
 
 Prefer this over calling the raw Studio `graph` from application code. The class validates input, assigns a `thread_id`, uses a checkpointer (default in-memory) so login interrupts can resume, and returns typed outcomes.
 
 ```python
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path("src/insightai").resolve()))
-
-from agent import InsightAgent, NeedsLogin
+from insightai import InsightAgent, NeedsLogin
 
 agent = InsightAgent()
 
@@ -120,7 +115,7 @@ Typical Studio or `InsightAgent.arun` input (`CreateGraphState`):
 
 Important runtime fields: `plan`, `current_step`, `step_findings` (append-only list), `completed`, `error`, `report`, `timeline`.
 
-State typing lives in `src/insightai/src/utils/states.py`:
+State typing lives in `src/insightai/utils/states.py`:
 
 | TypedDict | Role |
 |-----------|------|
@@ -129,7 +124,7 @@ State typing lives in `src/insightai/src/utils/states.py`:
 | `ExecutionState` | Execute / loop fields |
 | `ReportState` | Inputs to `finalize_report` (report is output-only) |
 
-Domain models live in `src/insightai/src/utils/objects.py`:
+Domain models live in `src/insightai/utils/objects.py`:
 
 | Model | Role |
 |-------|------|
@@ -151,22 +146,27 @@ InsightAIAgent/
 ├── scripts/
 │   └── start-playwright-mcp.bat
 ├── src/
-│   ├── insightai/
+│   ├── insightai/              # installable Python package
 │   │   ├── agent.py            # InsightAgent (programmatic API)
-│   │   └── src/
-│   │       ├── auth/           # encrypted session store + capture CLI
-│   │       ├── db/             # SQLAlchemy models, Database helper, schema SQL
-│   │       ├── evidence/       # session, capture, uploads, timeline, save_run
-│   │       ├── create_plan.py
-│   │       ├── execute_plan.py
-│   │       ├── insightaiagent_graph.py
-│   │       ├── mcp_clients/playwright.py
-│   │       ├── runtime_paths.py
-│   │       └── utils/          # nodes, prompts, states, edges, model, logging
+│   │   ├── insightaiagent_graph.py
+│   │   ├── create_plan.py
+│   │   ├── execute_plan.py
+│   │   ├── runtime_paths.py
+│   │   ├── auth/               # encrypted session store + capture CLI
+│   │   ├── db/                 # SQLAlchemy models, Database helper, schema SQL
+│   │   ├── evidence/           # session, capture, uploads, timeline, save_run
+│   │   ├── mcp_clients/playwright.py
+│   │   └── utils/              # nodes, prompts, states, edges, model, logging
 │   ├── api/                    # FastAPI service (WIP)
 │   ├── web/                    # Frontend (WIP)
 │   └── test_web/               # LumenShop demo storefront (optional QA target)
 └── README.md
+```
+
+Import the package after `uv sync`:
+
+```python
+from insightai import InsightAgent, NeedsLogin
 ```
 
 Playwright integration: `PlaywrightMCP` talks to `http://localhost:8931/mcp` (or `PLAYWRIGHT_MCP_URL`), sanitizes tool schemas for OpenAI, and keeps cookie/storage/evaluate tools off the model tool list.
@@ -227,15 +227,11 @@ Use Studio or the local API to invoke **`insightaiagent`**. If Studio cannot rea
 
 ## Database (SQLAlchemy + Neon)
 
-Connection and CRUD live in `src/insightai/src/db/`:
+Connection and CRUD live in `src/insightai/db/`:
 
 ```python
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path("src/insightai/src").resolve()))
-
-from db import get_database, Run
-from utils.objects import Run as RunModel  # pydantic summary
+from insightai.db import get_database, Run
+from insightai.utils.objects import Run as RunModel  # pydantic summary
 
 db = get_database()       # DATABASE_URL (pooled OK)
 db.create_tables()        # idempotent; prefer DATABASE_URL_UNPOOLED for first DDL
@@ -288,12 +284,12 @@ Auth is not requested up front. If a plan step hits a login page, the executor s
 You can still pre-save a session without waiting for a login wall:
 
 ```powershell
-.\.venv\Scripts\python.exe src\insightai\src\auth\capture.py generate-key
+.\.venv\Scripts\python.exe -m insightai.auth.capture generate-key
 # put AUTH_DATA_KEY and AUTH_DATABASE_URL (or DATABASE_URL) in .env
 
-.\.venv\Scripts\python.exe src\insightai\src\auth\capture.py save --profile my-app --origin https://app.example.com --login-url https://app.example.com/login
-.\.venv\Scripts\python.exe src\insightai\src\auth\capture.py list
-.\.venv\Scripts\python.exe src\insightai\src\auth\capture.py revoke --profile my-app
+.\.venv\Scripts\python.exe -m insightai.auth.capture save --profile my-app --origin https://app.example.com --login-url https://app.example.com/login
+.\.venv\Scripts\python.exe -m insightai.auth.capture list
+.\.venv\Scripts\python.exe -m insightai.auth.capture revoke --profile my-app
 ```
 
 If `auth_profile_id` is set and a matching unexpired row exists, the shared Playwright client restores it once before the model runs. Changing `AUTH_DATA_KEY` does not re-encrypt old rows; revoke and save again.
@@ -314,7 +310,7 @@ One Playwright MCP client is reused for the whole LangGraph thread. The harness 
 | Network | After navigate / form fill / submit-like clicks (failures and HTTP ≥ 400) | Postgres `run_logs` (`kind=network`) |
 | Snapshot | After each `browser_snapshot` (a11y tree, redacted, capped) | Postgres `run_logs` (`kind=snapshot`) |
 
-Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (`kind` is `screenshot` \| `video`). Console, network, and accessibility snapshots are logged via [`utils.logging.Logging`](src/insightai/src/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
+Screenshot and video bytes go to private Neon Object Storage. `run_artifacts` stores `thread_id`, `step`, `kind`, `bucket`, `object_key` only (`kind` is `screenshot` \| `video`). Console, network, and accessibility snapshots are logged via [`utils.logging.Logging`](src/insightai/utils/logging.py) into `run_logs` — not uploaded as objects and not listed on `StepFindings.artifacts`. `StepFindings.artifacts` carries screenshot/video keys into the report. Viewing media uses a short-lived presign (`evidence.store.presign_get`).
 
 Login walls skip screenshots when the page looks like a password form, and `auth_expired` steps drop screenshot artifacts. Evidence upload/logging is best-effort: missing AWS env or tables logs a warning and the QA run continues.
 
@@ -331,8 +327,8 @@ in `run_logs`; media pointers in `run_artifacts`.
 `assemble_timeline(thread_id)` returns a `Timeline` model (events, actions, chapters, artifacts, logs). Dump a thread:
 
 ```powershell
-.\.venv\Scripts\python.exe src\insightai\src\evidence\timeline_cli.py <thread_id> --pretty
-.\.venv\Scripts\python.exe src\insightai\src\evidence\timeline_cli.py <thread_id> --actions-only --pretty
+.\.venv\Scripts\python.exe -m insightai.evidence.timeline_cli <thread_id> --pretty
+.\.venv\Scripts\python.exe -m insightai.evidence.timeline_cli <thread_id> --actions-only --pretty
 ```
 
 ### Persisted runs
@@ -347,12 +343,8 @@ On `finalize_report`, `evidence.runs.save_run_from_state` upserts one `runs` row
 Secrets in payloads are redacted before insert. Persistence is best-effort and must not fail report generation.
 
 ```python
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path("src/insightai/src").resolve()))
-
-from evidence import save_run_from_state, assemble_timeline
-from db import get_database
+from insightai.evidence import save_run_from_state, assemble_timeline
+from insightai.db import get_database
 
 # Manual save / load
 save_run_from_state(state, config=config, report=report)
@@ -372,7 +364,7 @@ See `src/test_web/README.md` for run instructions and sample bug scenarios; `BUG
 
 ## Development notes
 
-- Default chat model: `gpt-4o` in `src/insightai/src/utils/model.py` (override with `OPENAI_MODEL`).
+- Default chat model: `gpt-4o` in `src/insightai/utils/model.py` (override with `OPENAI_MODEL`).
 - Do not add a top-level Python package named `mcp` under the agent source tree; it shadows the official MCP SDK. This repo uses `mcp_clients/`.
 - After graph or state shape changes, start a new Studio thread so checkpointed state does not conflict with reducers (e.g. `step_findings` must be appended as lists).
 - Keep schema SQL, SQLAlchemy models, and the live Neon schema in sync when changing tables.
