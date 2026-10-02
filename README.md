@@ -192,6 +192,21 @@ Start MCP with `--output-dir .playwright-mcp` (gitignored). Screenshot pointers
 (`bucket` + `object_key`) stay on `step_findings` for the whole run. Local PNGs/
 video under that directory are removed when the graph finishes and uploads succeed.
 
+### Timeline and action log
+
+Every run writes structured breadcrumbs to Postgres ``run_events`` (session, steps,
+tools, screenshots, snapshots, auth, uploads). Console/network/snapshot text stays
+in ``run_logs``; media pointers in ``run_artifacts``.
+
+Dump a thread's timeline:
+
+```powershell
+.\.venv\Scripts\python.exe insight\agent\src\evidence\timeline_cli.py <thread_id> --pretty
+.\.venv\Scripts\python.exe insight\agent\src\evidence\timeline_cli.py <thread_id> --actions-only --pretty
+```
+
+`assemble_timeline(thread_id)` returns `{events, actions, chapters, artifacts, logs}`.
+
 ## Demo storefront
 
 `insight/test_web` is **LumenShop**, a static multi-page shop (catalog, cart, checkout, login, contact, account) meant for exercising the agent. Serve it while testing:

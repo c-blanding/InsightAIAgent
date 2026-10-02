@@ -100,3 +100,35 @@ class RunLog(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class RunEvent(Base):
+    """Ordered action / timeline event for a QA run (structured breadcrumbs)."""
+
+    __tablename__ = "run_events"
+    __table_args__ = (
+        Index("run_events_thread_created_idx", "thread_id", "created_at"),
+        Index("run_events_thread_step_idx", "thread_id", "step"),
+        Index("run_events_thread_type_idx", "thread_id", "event_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    thread_id: Mapped[str] = mapped_column(Text, nullable=False)
+    step: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    event_type: Mapped[str] = mapped_column(Text, nullable=False)
+    tool: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ok'"))
+    ref_kind: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ref_bucket: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ref_object_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

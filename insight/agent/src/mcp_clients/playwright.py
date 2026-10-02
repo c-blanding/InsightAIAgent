@@ -122,18 +122,6 @@ def _redact_network_tool(tool: BaseTool) -> BaseTool:
     return tool.model_copy(update=updates)
 
 
-_EVIDENCE_WRAP = frozenset(
-    {
-        "browser_navigate",
-        "browser_navigate_back",
-        "browser_click",
-        "browser_type",
-        "browser_fill_form",
-        "browser_select_option",
-        "browser_press_key",
-    }
-)
-
 # Model-facing tools that accept ``filename``. Relative names resolve against the
 # MCP workspace root (repo), which dumps files into the project root — rewrite or
 # strip so artifacts stay under ``.playwright-mcp/runs/...``.
@@ -228,9 +216,7 @@ def _wrap_filename_tool(tool: BaseTool) -> BaseTool:
 
 
 def _wrap_evidence_tool(tool: BaseTool, client: "PlaywrightMCP") -> BaseTool:
-    """After important UI actions, harness screenshots (and sometimes network)."""
-    if tool.name not in _EVIDENCE_WRAP:
-        return tool
+    """After every model-visible browser tool: action log + optional screenshots/network."""
     original_async = tool.coroutine
     if original_async is None:
         return tool

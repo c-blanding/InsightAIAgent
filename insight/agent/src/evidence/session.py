@@ -266,6 +266,13 @@ async def session_for(thread_id: str | None) -> PlaywrightMCP:
         # Register before further awaits so CancelledError cannot leak the client.
         _sessions[key] = held
 
+        try:
+            from evidence.timeline import EVENT_SESSION_START, emit_event
+
+            emit_event(key, EVENT_SESSION_START, "Playwright session opened")
+        except Exception:
+            pass
+
         if not client.has_tool("browser_start_video"):
             logger.warning(
                 "Playwright MCP at %s has no browser_start_video "
@@ -281,6 +288,18 @@ async def session_for(thread_id: str | None) -> PlaywrightMCP:
                 {"filename": str(video_path)},
             )
             held.video_started = True
+            try:
+                from evidence.timeline import EVENT_VIDEO_START, emit_event
+
+                emit_event(
+                    key,
+                    EVENT_VIDEO_START,
+                    "Video recording started",
+                    tool="browser_start_video",
+                    detail=str(video_path),
+                )
+            except Exception:
+                pass
         except PlaywrightToolError:
             logger.warning(
                 "browser_start_video failed for thread %s; continuing without recording. "
@@ -331,6 +350,18 @@ async def apply_auth_if_needed(thread_id: str | None, profile_id: str, url: str)
             current = _sessions.get(key)
             if current is held and not current.releasing:
                 current.auth_profile_applied = profile
+        try:
+            from evidence.timeline import EVENT_AUTH_RESTORE, emit_event
+
+            emit_event(
+                key,
+                EVENT_AUTH_RESTORE,
+                f"Restored auth profile {profile}",
+                tool="browser_set_storage_state",
+                detail=profile,
+            )
+        except Exception:
+            pass
     finally:
         try:
             await asyncio.to_thread(path.unlink, missing_ok=True)
@@ -377,11 +408,33 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
                     run_log.info,
                     f"Uploaded {len(pending)} screenshot(s) at end of run",
                 )
+                try:
+                    from evidence.timeline import EVENT_UPLOAD, emit_event
+
+                    emit_event(
+                        key,
+                        EVENT_UPLOAD,
+                        f"Uploaded {len(pending)} screenshot(s)",
+                        detail=str(len(pending)),
+                    )
+                except Exception:
+                    pass
 
         if finished and held.video_started:
             stop_result: Any = None
             try:
                 stop_result = await held.client.call_mcp("browser_stop_video", {})
+                try:
+                    from evidence.timeline import EVENT_VIDEO_STOP, emit_event
+
+                    emit_event(
+                        key,
+                        EVENT_VIDEO_STOP,
+                        "Video recording stopped",
+                        tool="browser_stop_video",
+                    )
+                except Exception:
+                    pass
             except PlaywrightToolError:
                 logger.warning(
                     "browser_stop_video failed for thread %s",
@@ -413,6 +466,19 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
                         run_log.info,
                         f"Uploaded video to Neon bucket {artifact['bucket']}/{artifact['object_key']}",
                     )
+                    try:
+                        from evidence.timeline import EVENT_UPLOAD, emit_event
+
+                        emit_event(
+                            key,
+                            EVENT_UPLOAD,
+                            "Uploaded run video",
+                            ref_kind="video",
+                            ref_bucket=artifact.get("bucket"),
+                            ref_object_key=artifact.get("object_key"),
+                        )
+                    except Exception:
+                        pass
                 else:
                     logger.warning(
                         "Video recorded at %s but upload skipped/failed "
@@ -431,11 +497,15 @@ async def release(thread_id: str | None, *, finished: bool = True) -> dict[str, 
         except Exception:
             logger.warning("Failed to stop Playwright MCP for thread %s", key, exc_info=True)
         if finished:
-            # Graph done: clear local staging only after media uploads succeed
-            # (or there is nothing left to keep). Failed uploads keep files for retry.
             exists = await asyncio.to_thread(local_video.exists)
             video_ok = artifact is not None or not held.video_started or not exists
             if video_ok and not screenshots_pending:
                 await asyncio.to_thread(_cleanup_run_dir, run_dir)
+        try:
+            from evidence.timeline import EVENT_SESSION_END, emit_event
+
+            emit_event(key, EVENT_SESSION_END, "Playwright session closed")
+        except Exception:
+            pass
 
     return artifact

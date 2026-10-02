@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from db.models import AuthSession, Base, RunArtifact, RunLog
+from db.models import AuthSession, Base, RunArtifact, RunEvent, RunLog
 
 _ARTIFACT_KINDS = frozenset({"screenshot", "video"})
 _LOG_KINDS = frozenset({"console", "network", "info", "snapshot"})
@@ -394,6 +394,72 @@ class Database:
             if kind is not None:
                 stmt = stmt.where(RunLog.kind == kind)
             result = session.execute(stmt)
+            return result.rowcount or 0
+
+    # ------------------------------------------------------------------
+    # Run events (timeline / action log)
+    # ------------------------------------------------------------------
+
+    def insert_run_event(
+        self,
+        *,
+        thread_id: str,
+        event_type: str,
+        title: str,
+        step: int | None = None,
+        tool: str | None = None,
+        detail: str | None = None,
+        status: str = "ok",
+        ref_kind: str | None = None,
+        ref_bucket: str | None = None,
+        ref_object_key: str | None = None,
+    ) -> RunEvent:
+        with self.session() as session:
+            row = RunEvent(
+                thread_id=thread_id,
+                step=step,
+                event_type=event_type,
+                tool=tool,
+                title=title,
+                detail=detail,
+                status=status or "ok",
+                ref_kind=ref_kind,
+                ref_bucket=ref_bucket,
+                ref_object_key=ref_object_key,
+            )
+            session.add(row)
+            session.flush()
+            session.refresh(row)
+            session.expunge(row)
+            return row
+
+    def list_run_events(
+        self,
+        thread_id: str,
+        *,
+        step: int | None = None,
+        event_type: str | None = None,
+    ) -> list[RunEvent]:
+        with self.session() as session:
+            stmt = (
+                select(RunEvent)
+                .where(RunEvent.thread_id == thread_id)
+                .order_by(RunEvent.created_at, RunEvent.id)
+            )
+            if step is not None:
+                stmt = stmt.where(RunEvent.step == step)
+            if event_type is not None:
+                stmt = stmt.where(RunEvent.event_type == event_type)
+            rows = list(session.scalars(stmt).all())
+            for row in rows:
+                session.expunge(row)
+            return rows
+
+    def delete_run_events(self, thread_id: str) -> int:
+        with self.session() as session:
+            result = session.execute(
+                delete(RunEvent).where(RunEvent.thread_id == thread_id)
+            )
             return result.rowcount or 0
 
 

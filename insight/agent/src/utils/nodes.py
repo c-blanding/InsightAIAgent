@@ -152,6 +152,18 @@ async def execute_plan(
 
     evidence_context.begin_step(thread_id, current_step)
     try:
+        from evidence.timeline import EVENT_STEP_START, emit_event
+
+        emit_event(
+            thread_id,
+            EVENT_STEP_START,
+            f"Step {current_step}: {step.action}",
+            step=current_step,
+            detail=step.action,
+        )
+    except Exception:
+        pass
+    try:
         playwright = await session_for(thread_id)
         if profile_id:
             await apply_auth_if_needed(thread_id, profile_id, url)
@@ -227,7 +239,32 @@ async def execute_plan(
         ]
     findings = _merge_artifacts(findings, harness_artifacts)
     findings = _redact_findings(findings)
+    try:
+        from evidence.timeline import EVENT_STEP_END, emit_event
+
+        emit_event(
+            thread_id,
+            EVENT_STEP_END,
+            f"Step {current_step} finished",
+            step=current_step,
+            detail=(findings.error or findings.findings or "")[:800] or None,
+            status="error" if findings.error else "ok",
+        )
+    except Exception:
+        pass
     if (findings.error or "").strip() == AUTH_EXPIRED:
+        try:
+            from evidence.timeline import EVENT_AUTH_LOGIN, emit_event
+
+            emit_event(
+                thread_id,
+                EVENT_AUTH_LOGIN,
+                "Login wall — waiting for human Continue",
+                step=current_step,
+                status="paused",
+            )
+        except Exception:
+            pass
         return {
             "step_findings": [findings],
             "plan": plan,
@@ -304,6 +341,17 @@ async def wait_for_login(
             page_url=url,
         )
         mark_auth_applied(thread_id, profile_id)
+        try:
+            from evidence.timeline import EVENT_AUTH_SAVED, emit_event
+
+            emit_event(
+                thread_id,
+                EVENT_AUTH_SAVED,
+                f"Saved auth profile {profile_id}",
+                detail=profile_id,
+            )
+        except Exception:
+            pass
     except ConnectionError as exc:
         await release(thread_id, finished=True)
         return _stopped(str(exc), "mcp_unreachable")

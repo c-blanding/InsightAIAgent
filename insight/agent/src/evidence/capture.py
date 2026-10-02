@@ -154,6 +154,21 @@ async def capture_screenshot(client: PlaywrightMCP, *, tool_name: str) -> dict[s
         thread_id=ctx.thread_id,
         step=ctx.step,
     )
+    try:
+        from evidence.timeline import EVENT_SCREENSHOT, emit_from_context
+
+        emit_from_context(
+            EVENT_SCREENSHOT,
+            f"Screenshot after {tool_name}",
+            tool=tool_name,
+            detail=object_key,
+            status="ok" if uploaded else "pending_upload",
+            ref_kind="screenshot",
+            ref_bucket=SCREENSHOT_BUCKET,
+            ref_object_key=object_key,
+        )
+    except Exception:
+        logger.debug("timeline screenshot event skipped", exc_info=True)
     if uploaded is None:
         logger.info(
             "Screenshot kept locally for step_findings / end-of-run upload: %s",
@@ -178,6 +193,14 @@ async def capture_console(client: PlaywrightMCP) -> str:
         return ""
     try:
         await asyncio.to_thread(_run_logger(ctx).console, text[:8000])
+        from evidence.timeline import EVENT_CONSOLE, emit_from_context
+
+        emit_from_context(
+            EVENT_CONSOLE,
+            "Console messages captured",
+            tool="browser_console_messages",
+            detail=text[:800],
+        )
     except Exception:
         logger.debug("run_logs console insert skipped", exc_info=True)
     return text if len(text) < 1500 else text[:1500] + "\n...[truncated]"
@@ -201,6 +224,14 @@ async def capture_network(client: PlaywrightMCP, *, force: bool = False) -> None
         return
     try:
         await asyncio.to_thread(_run_logger(ctx).network, text[:8000])
+        from evidence.timeline import EVENT_NETWORK, emit_from_context
+
+        emit_from_context(
+            EVENT_NETWORK,
+            "Network requests captured",
+            tool="browser_network_requests",
+            detail=text[:800],
+        )
     except Exception:
         logger.debug("run_logs network insert skipped", exc_info=True)
 
@@ -233,6 +264,20 @@ async def persist_a11y_snapshot(
     except Exception:
         logger.debug("run_logs snapshot insert skipped", exc_info=True)
 
+    try:
+        from evidence.timeline import EVENT_SNAPSHOT, emit_event
+
+        emit_event(
+            thread_id,
+            EVENT_SNAPSHOT,
+            "Accessibility snapshot",
+            step=step,
+            tool="browser_snapshot",
+            detail=capped[:800],
+        )
+    except Exception:
+        logger.debug("timeline snapshot event skipped", exc_info=True)
+
     raw_name = (suggested_name or "").strip().replace("\\", "/")
     base = Path(raw_name).name if raw_name else ""
     if not base or base in {".", ".."}:
@@ -260,6 +305,21 @@ async def after_tool(
     result: Any,
 ) -> None:
     """Post-success harness hooks for important browser tools."""
+    # Always record the tool action on the timeline (even when screenshots skip).
+    try:
+        from evidence.timeline import EVENT_ERROR, EVENT_TOOL, emit_from_context
+
+        failed = _tool_failed(result)
+        emit_from_context(
+            EVENT_ERROR if failed else EVENT_TOOL,
+            f"Tool {tool_name}",
+            tool=tool_name,
+            detail=(tool_result_text(result) or "")[:800] or None,
+            status="error" if failed else "ok",
+        )
+    except Exception:
+        logger.debug("timeline tool event skipped", exc_info=True)
+
     if tool_name not in _SCREENSHOT_AFTER and tool_name not in _NETWORK_AFTER:
         return
     if _tool_failed(result):
