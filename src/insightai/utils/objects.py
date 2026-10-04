@@ -27,6 +27,7 @@ class StepFindings(BaseModel):
     )
 
 
+
 class Steps(BaseModel):
     step: Optional[int] = Field(None, description="Step number")
     action: Optional[str] = Field(None, description="Action to perform")
@@ -50,6 +51,10 @@ class Plan(BaseModel):
 
 class Report(BaseModel):
     report: Optional[str] = Field(None, description="Report of the bug")
+
+    @property
+    def formatted_report(self) -> str:
+        return self.report or "No report found"
 
 
 class TimelineRef(BaseModel):
@@ -113,6 +118,23 @@ class Timeline(BaseModel):
     logs: List[TimelineLog] = Field(default_factory=list)
     chapters: List[TimelineChapter] = Field(default_factory=list)
     error: Optional[str] = None
+
+    @property
+    def formatted_timeline(self) -> str:
+        return "\n".join([chapter.label for chapter in self.chapters])
+    @property
+    def formatted_events(self) -> str:
+        return "\n".join([event.title for event in self.events])
+    @property
+    def formatted_actions(self) -> str:
+        return "\n".join([action.title for action in self.actions])
+    @property
+    def formatted_artifacts(self) -> str:
+        return "\n".join([artifact.object_key for artifact in self.artifacts])
+    @property
+    def formatted_logs(self) -> str:
+        return "\n".join([log.message for log in self.logs])
+
 
 
 class Run(BaseModel):

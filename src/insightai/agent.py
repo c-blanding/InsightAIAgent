@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import re
+from typing_extensions import List
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Literal, Optional, Union
@@ -86,7 +87,7 @@ class InsightResult:
     bug_description: str
     report: Optional[Report] = None
     plan: Optional[Plan] = None
-    step_findings: list[StepFindings] = field(default_factory=list)
+    step_findings: Optional[List[StepFindings]] = None
     timeline: Optional[Timeline] = None
     expected_behavior: Optional[str] = None
     auth_profile_id: Optional[str] = None
@@ -97,6 +98,10 @@ class InsightResult:
     @property
     def ok(self) -> bool:
         return self.report is not None and not self.error
+
+    @property
+    def formatted_step_findings(self) -> str:
+        return "\n".join([finding.model_dump_json() for finding in self.step_findings])
 
 
 InsightOutcome = Union[InsightResult, NeedsLogin]

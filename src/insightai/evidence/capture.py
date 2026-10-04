@@ -39,6 +39,8 @@ _NETWORK_AFTER = frozenset(
         "browser_navigate",
         "browser_navigate_back",
         "browser_fill_form",
+        "browser_select_option",
+        "browser_click",
     }
 )
 

@@ -6,7 +6,7 @@ Evidence (screenshots, video, console/network/snapshot logs, timeline events) an
 
 **Programmatic entry point:** [`InsightAgent`](src/insightai/agent.py) (`arun` / `acontinue`).  
 **Studio entry point:** graph id `insightaiagent` via [`insightaiagent_graph.py`](src/insightai/insightaiagent_graph.py).  
-**FastAPI integration notes:** [`docs/FASTAPI_HANDOFF.md`](docs/FASTAPI_HANDOFF.md).
+**FastAPI integration notes:** [`docs/FASTAPI_HANDOFF.md`](docs/FASTAPI_HANDOFF.md).  
 
 ## Pipeline
 
